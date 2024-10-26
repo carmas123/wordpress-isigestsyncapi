@@ -1,21 +1,21 @@
 .isi-settings-wrap {
-    margin: 20px;
+	margin: 20px;
 }
 
 .isi-settings-wrap .form-table {
-    background: #fff;
-    padding: 20px;
-    border-radius: 5px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+	background: #fff;
+	padding: 20px;
+	border-radius: 5px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .isi-settings-section {
-    margin-bottom: 30px;
+	margin-bottom: 30px;
 }
 
 .isi-field-row {
-    margin-bottom: 15px;
-    padding: 10px;
-    background: #f9f9f9;
-    border-radius: 4px;
+	margin-bottom: 15px;
+	padding: 10px;
+	background: #f9f9f9;
+	border-radius: 4px;
 }

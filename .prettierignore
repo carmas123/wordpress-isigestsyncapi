@@ -1,0 +1,21 @@
+# Dependencies
+node_modules
+vendor
+
+# Build outputs
+dist
+build
+release
+
+# WordPress core files
+wp-admin/
+wp-includes/
+wp-content/plugins/*
+!wp-content/plugins/isigestsyncapi/
+
+# Other
+*.min.css
+*.min.js
+*.map
+.DS_Store
+Thumbs.db

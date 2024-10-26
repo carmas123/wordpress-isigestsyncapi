@@ -1,0 +1,13 @@
+{
+    "tabWidth": 4,
+    "useTabs": true,
+    "printWidth": 100,
+    "singleQuote": true,
+    "trailingComma": "none",
+    "bracketSpacing": true,
+    "semi": true,
+    "endOfLine": "lf",
+    "plugins": ["@prettier/plugin-php"],
+    "phpVersion": "7.4",
+    "braceStyle": "1tbs"
+}

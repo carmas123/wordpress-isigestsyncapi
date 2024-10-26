@@ -1,26 +1,36 @@
 {
-  "name": "isigestsyncapi",
-  "version": "1.0.0",
-  "description": "Plugin per la sincronizzazione dei prodotti tramite API",
-  "author": "Massimo Caroccia & Claude",
-  "main": "Gruntfile.js",
-  "license": "GPL-2.0-or-later",
-  "scripts": {
-    "build": "grunt build",
-    "watch": "grunt watch",
-    "package": "grunt package",
-    "makepot": "grunt makepot"
-  },
-  "devDependencies": {
-    "grunt": "^1.6.1",
-    "grunt-contrib-clean": "^2.0.1",
-    "grunt-contrib-compress": "^2.0.0",
-    "grunt-contrib-copy": "^1.0.0",
-    "grunt-contrib-cssmin": "^5.0.0",
-    "grunt-contrib-uglify": "^5.2.2",
-    "grunt-contrib-watch": "^1.1.0",
-    "grunt-wp-i18n": "^1.0.3",
-    "grunt-phpcs": "^0.4.0",
-    "load-grunt-tasks": "^5.1.0"
-  }
+	"name": "isigestsyncapi",
+	"version": "1.0.0",
+	"description": "Plugin per la sincronizzazione dei prodotti tramite API",
+	"author": "ISIGest S.r.l.",
+	"main": "Gruntfile.js",
+	"license": "GPL-2.0-or-later",
+	"scripts": {
+		"build": "grunt build",
+		"watch": "grunt watch",
+		"package": "grunt package",
+		"makepot": "grunt makepot",
+		"format": "prettier --write \"**/*.{php,css,js}\" --plugin=@prettier/plugin-php",
+		"format:check": "prettier --check \"**/*.{php,css,js}\" --plugin=@prettier/plugin-php",
+		"lint": "eslint \"**/*.js\" --ignore-pattern 'vendor/**' --ignore-pattern 'node_modules/**'",
+		"lint:fix": "eslint --fix \"**/*.js\" --ignore-pattern 'vendor/**' --ignore-pattern 'node_modules/**'",
+		"format:php": "php-cs-fixer fix --config=.php-cs-fixer.php",
+		"format:check:php": "php-cs-fixer fix --config=.php-cs-fixer.php --dry-run --diff"
+	},
+	"devDependencies": {
+		"@prettier/plugin-php": "^0.19.7",
+		"eslint": "^8.47.0",
+		"eslint-config-prettier": "^9.0.0",
+		"grunt": "^1.6.1",
+		"grunt-contrib-clean": "^2.0.1",
+		"grunt-contrib-compress": "^2.0.0",
+		"grunt-contrib-copy": "^1.0.0",
+		"grunt-contrib-cssmin": "^5.0.0",
+		"grunt-contrib-uglify": "^5.2.2",
+		"grunt-contrib-watch": "^1.1.0",
+		"grunt-phpcs": "^0.4.0",
+		"grunt-wp-i18n": "^1.0.3",
+		"load-grunt-tasks": "^5.1.0",
+		"prettier": "^2.8.8"
+	}
 }
