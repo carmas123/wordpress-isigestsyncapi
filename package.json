@@ -1,17 +1,26 @@
-
 {
   "name": "isigestsyncapi",
-  "version": "0.1.0",
-  "main": "Gruntfile.js",
+  "version": "1.0.0",
+  "description": "Plugin per la sincronizzazione dei prodotti tramite API",
   "author": "Massimo Caroccia & Claude",
-  "scripts" : {
-    "start" : "grunt default" ,
-    "readme" : "grunt readme",
-    "i18n" : "grunt i18n"
+  "main": "Gruntfile.js",
+  "license": "GPL-2.0-or-later",
+  "scripts": {
+    "build": "grunt build",
+    "watch": "grunt watch",
+    "package": "grunt package",
+    "makepot": "grunt makepot"
   },
   "devDependencies": {
-    "grunt": "~0.4.5",
-    "grunt-wp-i18n": "~0.5.0",
-    "grunt-wp-readme-to-markdown": "~1.0.0"
+    "grunt": "^1.6.1",
+    "grunt-contrib-clean": "^2.0.1",
+    "grunt-contrib-compress": "^2.0.0",
+    "grunt-contrib-copy": "^1.0.0",
+    "grunt-contrib-cssmin": "^5.0.0",
+    "grunt-contrib-uglify": "^5.2.2",
+    "grunt-contrib-watch": "^1.1.0",
+    "grunt-wp-i18n": "^1.0.3",
+    "grunt-phpcs": "^0.4.0",
+    "load-grunt-tasks": "^5.1.0"
   }
 }

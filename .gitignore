@@ -1,9 +1,37 @@
-.DS_Store
-phpcs.xml
-phpunit.xml
-Thumbs.db
-wp-cli.local.yml
+# Directories
 node_modules/
+vendor/
+build/
+release/
+
+# IDE files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Logs and databases
+*.log
 *.sql
-*.tar.gz
-*.zip
+*.sqlite
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build files
+*.min.css
+*.min.js
+*.map
+
+# Composer
+composer.phar
+/vendor/
+
+# NPM
+package-lock.json
