@@ -20,6 +20,9 @@ if (!defined('ISIGESTSYNCAPI_PLUGIN_FILE')) {
 	define('ISIGESTSYNCAPI_PLUGIN_FILE', __FILE__);
 }
 
+// Carica l'autoloader
+require_once plugin_dir_path(__FILE__) . '/includes/autoload.php';
+
 /**
  * Classe principale del plugin.
  *
@@ -420,4 +423,4 @@ class Plugin {
 }
 
 // Inizializza il plugin
-ISIGestSyncAPI\Plugin::getInstance();
+Plugin::getInstance();
