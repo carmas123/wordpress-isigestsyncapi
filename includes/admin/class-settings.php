@@ -47,27 +47,9 @@ class Settings {
 		$this->helper = new SettingsHelper();
 		$this->config = ConfigHelper::getInstance();
 
-		add_action('admin_menu', [$this, 'addMenuPage']);
 		add_action('admin_init', [$this, 'registerSettings']);
-		add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
 		add_action('wp_ajax_isigestsyncapi_save_settings', [$this, 'ajaxSaveSettings']);
 		add_action('wp_ajax_isigestsyncapi_test_connection', [$this, 'ajaxTestConnection']);
-	}
-
-	/**
-	 * Aggiunge la pagina delle impostazioni al menu.
-	 *
-	 * @return void
-	 */
-	public function addMenuPage() {
-		add_submenu_page(
-			'woocommerce',
-			__('ISIGest Sync', 'isigestsyncapi'),
-			__('ISIGest Sync', 'isigestsyncapi'),
-			'manage_woocommerce',
-			'isigestsyncapi-settings',
-			[$this, 'renderSettingsPage'],
-		);
 	}
 
 	/**
@@ -77,38 +59,6 @@ class Settings {
 	 */
 	public function registerSettings() {
 		register_setting('isigestsyncapi_options', 'isigestsyncapi_settings');
-	}
-
-	/**
-	 * Carica gli asset necessari.
-	 *
-	 * @param string $hook L'hook della pagina corrente.
-	 * @return void
-	 */
-	public function enqueueAssets($hook) {
-		if ($hook !== 'woocommerce_page_isigestsyncapi-settings') {
-			return;
-		}
-
-		wp_enqueue_style(
-			'isigestsyncapi-admin',
-			plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/css/admin.css',
-			[],
-			'1.0.0',
-		);
-
-		wp_enqueue_script(
-			'isigestsyncapi-admin',
-			plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/js/admin.js',
-			['jquery'],
-			'1.0.0',
-			true,
-		);
-
-		wp_localize_script('isigestsyncapi-admin', 'isigestsyncapi', [
-			'nonce' => wp_create_nonce('isigestsyncapi-settings'),
-			'ajaxurl' => admin_url('admin-ajax.php'),
-		]);
 	}
 
 	/**

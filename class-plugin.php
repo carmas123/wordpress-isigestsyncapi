@@ -58,7 +58,42 @@ class Plugin {
 	 * @access private
 	 */
 	private function __construct() {
-		$this->init();
+		// Inizializzazione base al momento giusto
+		add_action('plugins_loaded', [$this, 'init']);
+
+		// Aggiungi link alle impostazioni nella pagina dei plugin
+		add_filter('plugin_action_links_' . plugin_basename(ISIGESTSYNCAPI_PLUGIN_FILE), [
+			$this,
+			'addPluginActionLinks',
+		]);
+
+		// Aggiungi il menu nel backend
+		if (is_admin()) {
+			add_action('admin_menu', [$this, 'addAdminMenuItems']);
+			add_action('admin_enqueue_scripts', [$this, 'enqueueAdminAssets']);
+		}
+	}
+
+	public function addAdminMenuItems() {
+		add_menu_page(
+			__('ISIGest Sync', 'isigestsyncapi'), // Titolo pagina
+			__('ISIGest Sync', 'isigestsyncapi'), // Titolo menu
+			'manage_woocommerce', // Capability richiesta
+			'isigestsyncapi-settings', // Slug menu
+			[$this, 'renderSettingsPage'], // Callback
+			'dashicons-update', // Icona
+			56, // Posizione
+		);
+
+		// Sottomenu opzionale
+		add_submenu_page(
+			'isigestsyncapi-settings', // Parent slug
+			__('Settings', 'isigestsyncapi'), // Titolo pagina
+			__('Settings', 'isigestsyncapi'), // Titolo menu
+			'manage_woocommerce', // Capability richiesta
+			'isigestsyncapi-settings', // Slug menu
+			[$this, 'renderSettingsPage'], // Callback
+		);
 	}
 
 	/**
@@ -306,6 +341,76 @@ class Plugin {
 	 */
 	public function deactivate() {
 		flush_rewrite_rules();
+	}
+
+	/**
+	 * Aggiunge i link alle impostazioni nella pagina dei plugin.
+	 *
+	 * @param array $links Array dei link esistenti.
+	 * @return array
+	 */
+	public function addPluginActionLinks($links) {
+		$settings_link =
+			'<a href="' .
+			admin_url('admin.php?page=isigestsyncapi-settings') .
+			'">' .
+			__('Settings', 'isigestsyncapi') .
+			'</a>';
+		array_unshift($links, $settings_link);
+		return $links;
+	}
+
+	/**
+	 * Aggiunge la voce di menu in WooCommerce.
+	 *
+	 * @return void
+	 */
+	public function addAdminMenu() {
+		add_submenu_page(
+			'woocommerce', // Parent slug
+			'ISIGest Sync', // Page title
+			'ISIGest Sync', // Menu title
+			'manage_woocommerce', // Capability
+			'isigestsyncapi-settings', // Menu slug
+			[$this, 'renderSettingsPage'], // Callback function
+		);
+	}
+
+	/**
+	 * Carica gli asset necessari nell'admin.
+	 *
+	 * @param string $hook L'hook della pagina corrente.
+	 * @return void
+	 */
+	public function enqueueAdminAssets($hook) {
+		if ($hook !== 'toplevel_page_isigestsyncapi-settings') {
+			return;
+		}
+
+		wp_enqueue_style(
+			'isigestsyncapi-admin',
+			plugin_dir_url(ISIGESTSYNCAPI_PLUGIN_FILE) . 'assets/css/admin.css',
+			[],
+			'1.0.0',
+		);
+
+		wp_enqueue_script(
+			'isigestsyncapi-admin',
+			plugin_dir_url(ISIGESTSYNCAPI_PLUGIN_FILE) . 'assets/js/admin.js',
+			['jquery'],
+			'1.0.0',
+			true,
+		);
+	}
+
+	/**
+	 * Renderizza la pagina delle impostazioni.
+	 *
+	 * @return void
+	 */
+	public function renderSettingsPage() {
+		$settings = new Admin\Settings();
+		$settings->renderSettingsPage();
 	}
 }
 
