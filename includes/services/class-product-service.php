@@ -4,7 +4,7 @@
  *
  * @package    ISIGestSyncAPI
  * @subpackage Services
- * @author     Massimo Caroccia & Claude
+ * @author     ISIGest S.r.l.
  * @copyright  2024 ISIGest
  */
 
