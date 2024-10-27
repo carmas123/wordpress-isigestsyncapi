@@ -150,42 +150,102 @@ class Plugin {
 	 */
 	private function registerCustomTables() {
 		global $wpdb;
-
 		$charset_collate = $wpdb->get_charset_collate();
 
 		$sql = [];
 
 		// Tabella per la storicizzazione dei prodotti
-		$sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}isi_api_product (
-			id_product bigint(20) NOT NULL,
-			id_product_attribute bigint(20) NOT NULL DEFAULT 0,
-			codice varchar(64) NOT NULL,
-			is_tc tinyint(1) NOT NULL DEFAULT 0,
-			unity varchar(32) DEFAULT NULL,
-			unitConversion decimal(15,6) DEFAULT 1.000000,
-			secondaryUnity varchar(32) DEFAULT NULL,
-			useSecondaryUnity tinyint(1) DEFAULT 0,
-			PRIMARY KEY  (id_product,id_product_attribute),
-			KEY IDX_CODICE (codice)
+		$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}isi_api_product` (
+			`post_id` bigint(20) NOT NULL,                    /* ID del post WooCommerce */
+			`variation_id` bigint(20) NOT NULL DEFAULT 0,     /* ID della variazione WooCommerce */
+			`sku` varchar(64) NOT NULL,                       /* SKU del prodotto */
+			`is_variable` tinyint(1) NOT NULL DEFAULT 0,      /* Indica se è un prodotto variabile */
+			`discount_group` varchar(32) DEFAULT NULL,        /* Gruppo sconto */
+			`product_group` varchar(32) DEFAULT NULL,         /* Gruppo merceologico */
+			`product_subgroup` varchar(32) DEFAULT NULL,      /* Sottogruppo merceologico */
+			`brand` varchar(32) DEFAULT NULL,                 /* Marca */
+			`season` varchar(32) DEFAULT NULL,                /* Stagione */
+			`year` int(11) DEFAULT NULL,                      /* Anno */
+			`unit` varchar(32) DEFAULT NULL,                  /* Unità di misura */
+			`unit_conversion` decimal(15,6) DEFAULT 1.000000, /* Conversione unità */
+			`secondary_unit` varchar(32) DEFAULT NULL,        /* Unità secondaria */
+			`use_secondary_unit` tinyint(1) DEFAULT 0,        /* Usa unità secondaria */
+			`created_at` datetime DEFAULT NULL,               /* Data creazione */
+			`updated_at` datetime DEFAULT NULL,               /* Data aggiornamento */
+			PRIMARY KEY (`post_id`,`variation_id`),
+			KEY `IDX_SKU` (`sku`)
 		) $charset_collate;";
 
 		// Tabella per lo storico dello stock
-		$sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}isi_api_stock (
-			id_product bigint(20) NOT NULL,
-			id_product_attribute bigint(20) NOT NULL DEFAULT 0,
-			codice varchar(64) NOT NULL,
-			warehouse varchar(32) NOT NULL,
-			quantity int(11) NOT NULL DEFAULT 0,
-			PRIMARY KEY  (id_product,id_product_attribute,warehouse),
-			KEY IDX_CODICE (codice)
+		$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}isi_api_stock` (
+			`post_id` bigint(20) NOT NULL,
+			`variation_id` bigint(20) NOT NULL DEFAULT 0,
+			`sku` varchar(64) NOT NULL,
+			`warehouse` varchar(32) NOT NULL,
+			`stock_quantity` int(11) NOT NULL DEFAULT 0,
+			`stock_status` varchar(32) DEFAULT 'instock',     /* Stato stock WooCommerce */
+			`updated_at` datetime DEFAULT NULL,
+			PRIMARY KEY (`post_id`,`variation_id`,`warehouse`),
+			KEY `IDX_SKU` (`sku`)
 		) $charset_collate;";
 
 		// Tabella per l'export dei prodotti
-		$sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}isi_api_export_product (
-			id_product bigint(20) NOT NULL,
-			exported tinyint(1) NOT NULL DEFAULT 0,
-			exported_at datetime DEFAULT NULL,
-			PRIMARY KEY  (id_product)
+		$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}isi_api_export_product` (
+			`post_id` bigint(20) NOT NULL,
+			`is_exported` tinyint(1) NOT NULL DEFAULT 0,
+			`exported_at` datetime DEFAULT NULL,
+			`last_sync_hash` varchar(32) DEFAULT NULL,        /* Hash per verificare modifiche */
+			PRIMARY KEY (`post_id`)
+		) $charset_collate;";
+
+		// Tabella per le caratteristiche dei prodotti
+		$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}isi_api_attribute` (
+			`id` bigint(20) NOT NULL AUTO_INCREMENT,
+			`code` varchar(128) NOT NULL,
+			`attribute_id` bigint(20) NOT NULL,              /* ID attributo WooCommerce */
+			`attribute_key` varchar(32) NOT NULL,            /* Chiave attributo WooCommerce */
+			`created_at` datetime DEFAULT NULL,
+			PRIMARY KEY (`id`),
+			UNIQUE KEY `UK_CODE` (`code`)
+		) $charset_collate;";
+
+		// Tabella per le offerte dei prodotti
+		$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}isi_api_product_offers` (
+			`id` bigint(20) NOT NULL AUTO_INCREMENT,
+			`post_id` bigint(20) NOT NULL,
+			`variation_id` bigint(20) NOT NULL DEFAULT 0,
+			`discount_amount` decimal(20,6) NOT NULL DEFAULT 0,
+			`discount_type` varchar(20) DEFAULT 'fixed',      /* Tipo sconto WooCommerce */
+			`min_quantity` int(11) NOT NULL DEFAULT 1,
+			`date_from` datetime DEFAULT NULL,
+			`date_to` datetime DEFAULT NULL,
+			`created_at` datetime DEFAULT NULL,
+			`updated_at` datetime DEFAULT NULL,
+			PRIMARY KEY (`id`),
+			KEY `IDX_PRODUCT` (`post_id`,`variation_id`)
+		) $charset_collate;";
+
+		// Tabella per il multimagazzino
+		$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}isi_api_warehouse` (
+			`post_id` bigint(20) NOT NULL,
+			`variation_id` bigint(20) NOT NULL DEFAULT 0,
+			`warehouse_code` varchar(32) NOT NULL,
+			`stock_quantity` int(11) NOT NULL DEFAULT 0,
+			`stock_status` varchar(32) DEFAULT 'instock',
+			`manage_stock` tinyint(1) DEFAULT 1,             /* Gestione stock WooCommerce */
+			`updated_at` datetime DEFAULT NULL,
+			PRIMARY KEY (`post_id`,`variation_id`,`warehouse_code`),
+			KEY `IDX_WAREHOUSE` (`warehouse_code`)
+		) $charset_collate;";
+
+		// Tabella per variazioni (taglie/colori)
+		$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}isi_api_variations` (
+			`post_id` bigint(20) NOT NULL,
+			`reference` varchar(64) NOT NULL,
+			`attribute_data` longtext DEFAULT NULL,          /* JSON dei dati attributi */
+			`updated_at` datetime DEFAULT NULL,
+			PRIMARY KEY (`post_id`),
+			KEY `IDX_REFERENCE` (`reference`)
 		) $charset_collate;";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
