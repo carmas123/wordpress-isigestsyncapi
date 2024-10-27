@@ -15,6 +15,11 @@ if (!defined('ABSPATH')) {
 	exit();
 }
 
+// Definisci il file principale del plugin
+if (!defined('ISIGESTSYNCAPI_PLUGIN_FILE')) {
+	define('ISIGESTSYNCAPI_PLUGIN_FILE', __FILE__);
+}
+
 /**
  * Classe principale del plugin.
  *
