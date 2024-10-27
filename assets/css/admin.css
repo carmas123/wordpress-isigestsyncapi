@@ -1,21 +1,181 @@
+/* Container principale */
 .isi-settings-wrap {
-	margin: 20px;
+	margin: 20px 20px 0 0;
+	max-width: 1200px;
 }
 
+/* Header e titolo */
+.isi-settings-wrap h1 {
+	margin-bottom: 20px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid #ccd0d4;
+}
+
+/* Tabs */
+.isi-settings-wrap .nav-tab-wrapper {
+	margin-bottom: 20px;
+	border-bottom: 1px solid #ccc;
+}
+
+.isi-settings-wrap .nav-tab {
+	margin-left: 0;
+	margin-right: 5px;
+	padding: 10px 15px;
+	font-size: 14px;
+}
+
+/* Form e tabelle */
 .isi-settings-wrap .form-table {
 	background: #fff;
 	padding: 20px;
-	border-radius: 5px;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	border: 1px solid #ccd0d4;
+	border-radius: 4px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	margin-top: 20px;
+	margin-bottom: 20px;
 }
 
+.isi-settings-wrap .form-table th {
+	padding: 20px 10px 20px 0;
+	width: 200px;
+	vertical-align: top;
+}
+
+.isi-settings-wrap .form-table td {
+	padding: 15px 10px;
+	vertical-align: top;
+}
+
+/* Campi di input */
+.isi-settings-wrap input[type='text'],
+.isi-settings-wrap input[type='number'],
+.isi-settings-wrap select,
+.isi-settings-wrap textarea {
+	width: 400px;
+	max-width: 100%;
+}
+
+.isi-settings-wrap textarea {
+	min-height: 100px;
+}
+
+/* Checkbox e radio */
+.isi-settings-wrap input[type='checkbox'],
+.isi-settings-wrap input[type='radio'] {
+	margin-right: 8px;
+}
+
+.isi-settings-wrap .checkbox-label {
+	display: block;
+	margin-bottom: 5px;
+}
+
+/* Descrizioni dei campi */
+.isi-settings-wrap .description {
+	color: #666;
+	font-style: italic;
+	margin-top: 5px;
+	display: block;
+}
+
+/* Pulsanti */
+.isi-settings-wrap .button-primary {
+	margin-top: 20px;
+}
+
+.isi-settings-wrap .button-secondary {
+	margin-left: 10px;
+}
+
+/* Sezioni */
 .isi-settings-section {
 	margin-bottom: 30px;
 }
 
-.isi-field-row {
-	margin-bottom: 15px;
-	padding: 10px;
-	background: #f9f9f9;
+.isi-settings-section h2 {
+	font-size: 1.3em;
+	margin: 1em 0;
+	padding: 0;
+}
+
+/* Notifiche */
+.isi-settings-wrap .notice {
+	margin: 20px 0;
+}
+
+/* Layout responsivo */
+@media screen and (max-width: 782px) {
+	.isi-settings-wrap .form-table th {
+		width: 100%;
+		display: block;
+		padding-bottom: 0;
+	}
+
+	.isi-settings-wrap .form-table td {
+		width: 100%;
+		display: block;
+		padding-left: 0;
+	}
+
+	.isi-settings-wrap input[type='text'],
+	.isi-settings-wrap input[type='number'],
+	.isi-settings-wrap select,
+	.isi-settings-wrap textarea {
+		width: 100%;
+	}
+}
+
+/* Gruppi di opzioni */
+.isi-settings-group {
+	border: 1px solid #e5e5e5;
+	background: #fff;
+	padding: 15px;
+	margin-top: 10px;
+	margin-bottom: 10px;
 	border-radius: 4px;
+}
+
+.isi-settings-group h3 {
+	margin-top: 0;
+	border-bottom: 1px solid #eee;
+	padding-bottom: 10px;
+}
+
+/* Stati e colori */
+.isi-status-enabled {
+	color: #46b450;
+}
+
+.isi-status-disabled {
+	color: #dc3232;
+}
+
+/* Tooltip */
+.isi-tooltip {
+	position: relative;
+	display: inline-block;
+	margin-left: 5px;
+	color: #666;
+}
+
+.isi-tooltip .isi-tooltiptext {
+	visibility: hidden;
+	width: 200px;
+	background-color: #333;
+	color: #fff;
+	text-align: center;
+	border-radius: 6px;
+	padding: 5px;
+	position: absolute;
+	z-index: 1;
+	bottom: 125%;
+	left: 50%;
+	margin-left: -100px;
+	opacity: 0;
+	transition: opacity 0.3s;
+}
+
+.isi-tooltip:hover .isi-tooltiptext {
+	visibility: visible;
+	opacity: 1;
 }

@@ -1,6 +1,9 @@
 <?php
 /**
- * File principale del plugin ISIGest Sync API
+ * Plugin Name: ISIGest Sync API
+ * Description: Plugin per la sincronizzazione dei prodotti tramite API
+ * Author: ISIGest S.r.l.
+ * Author URI: https://www.isigest.net
  *
  * @package    ISIGestSyncAPI
  * @author     ISIGest S.r.l.
@@ -125,7 +128,7 @@ class Plugin {
 	 * @since  1.0.0
 	 * @access private
 	 */
-	private function init() {
+	public function init() {
 		$this->loadDependencies();
 		$this->registerHooks();
 		$this->registerCustomTables();
@@ -177,9 +180,6 @@ class Plugin {
 		// Hooks di attivazione/disattivazione
 		register_activation_hook(__FILE__, [$this, 'activate']);
 		register_deactivation_hook(__FILE__, [$this, 'deactivate']);
-
-		// Hooks per le API
-		add_action('init', [$this, 'handleApiRequest']);
 
 		// Hooks per WooCommerce
 		add_action('woocommerce_init', [$this, 'initializeWooCommerce']);
@@ -298,18 +298,6 @@ class Plugin {
 	}
 
 	/**
-	 * Handler per le richieste API.
-	 *
-	 * @since  1.0.0
-	 * @access public
-	 */
-	public function handleApiRequest() {
-		if (strpos(trim($_SERVER['REQUEST_URI'], '/'), $this->prefix) !== false) {
-			$this->router->handleRequest();
-		}
-	}
-
-	/**
 	 * Inizializza l'integrazione con WooCommerce.
 	 *
 	 * @since  1.0.0
@@ -391,7 +379,10 @@ class Plugin {
 	 * @return void
 	 */
 	public function enqueueAdminAssets($hook) {
-		if ($hook !== 'toplevel_page_isigestsyncapi-settings') {
+		if (
+			$hook !== 'toplevel_page_isigestsyncapi-settings' &&
+			$hook !== 'isigest-sync_page_isigestsyncapi-settings'
+		) {
 			return;
 		}
 
@@ -409,6 +400,11 @@ class Plugin {
 			'1.0.0',
 			true,
 		);
+
+		wp_localize_script('isigestsyncapi-admin', 'isigestsyncapi', [
+			'ajaxurl' => admin_url('admin-ajax.php'),
+			'nonce' => wp_create_nonce('isigestsyncapi-settings'),
+		]);
 	}
 
 	/**
@@ -417,6 +413,10 @@ class Plugin {
 	 * @return void
 	 */
 	public function renderSettingsPage() {
+		if (!current_user_can('manage_options')) {
+			return;
+		}
+
 		$settings = new Admin\Settings();
 		$settings->renderSettingsPage();
 	}

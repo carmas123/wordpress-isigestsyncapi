@@ -1,5 +1,5 @@
 === ISIGest Sync API ===
-Contributors: massimo.caroccia
+Contributors: carmas123
 Tags: woocommerce, api, sync, products
 Requires at least: 5.0
 Tested up to: 6.4
