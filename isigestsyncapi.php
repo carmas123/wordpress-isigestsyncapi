@@ -155,7 +155,8 @@ class Plugin {
 	 */
 	private function loadDependencies() {
 		// AGGIUNGERE QUI LE DIPENDENZE RICHIESTE SE NECESSARIE
-		// SOLO SE NON GESTIGILI TRAMITE AUTOLOAD
+		// SOLO SE NON GESTITI TRAMITE AUTOLOAD
+		require_once plugin_dir_path(__FILE__) . '/includes/core/class-exceptions.php';
 	}
 
 	/**

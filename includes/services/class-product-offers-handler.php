@@ -24,45 +24,6 @@ class ProductOffersHandler extends BaseService {
 	}
 
 	/**
-	 * Aggiorna l'offerta di un prodotto.
-	 *
-	 * @param integer $product_id   ID del prodotto.
-	 * @param integer $variation_id ID della variante (0 se prodotto semplice).
-	 * @param array   $price_data   Dati del prezzo.
-	 * @return void
-	 */
-	public function updateProductOffer($product_id, $variation_id, $price_data) {
-		if (!$this->config->get('PRODUCTS_SYNC_OFFER_AS_SPECIFIC_PRICES')) {
-			return;
-		}
-
-		// Calcoliamo il prezzo base
-		$base_price = $variation_id
-			? $this->getBasePrice($product_id, $variation_id)
-			: $this->getBasePrice($product_id);
-
-		$sale_price = isset($price_data['sale_price']) ? (float) $price_data['sale_price'] : 0;
-
-		// Se c'è un prezzo di vendita diverso dal prezzo base, creiamo l'offerta
-		if ($sale_price > 0 && $sale_price < $base_price) {
-			$this->createOrUpdateOffer([
-				'product_id' => $product_id,
-				'variation_id' => $variation_id,
-				'regular_price' => $base_price,
-				'sale_price' => $sale_price,
-				'date_from' => isset($price_data['date_from']) ? $price_data['date_from'] : '',
-				'date_to' => isset($price_data['date_to']) ? $price_data['date_to'] : '',
-				'min_quantity' => isset($price_data['min_quantity'])
-					? $price_data['min_quantity']
-					: 1,
-			]);
-		} else {
-			// Altrimenti rimuoviamo eventuali offerte esistenti
-			$this->removeOffer($product_id, $variation_id);
-		}
-	}
-
-	/**
 	 * Crea o aggiorna un'offerta.
 	 *
 	 * @param array $offer_data Dati dell'offerta.
@@ -106,7 +67,7 @@ class ProductOffersHandler extends BaseService {
 		$discount = $regular_price - $sale_price;
 
 		// Applichiamo regole di arrotondamento se configurate
-		if ($this->config->get('PRODUCTS_PRICE_ROUND_NET')) {
+		if ($this->config->get('products_round_net_price')) {
 			$discount = round($discount, 2);
 		}
 

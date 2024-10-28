@@ -48,18 +48,45 @@ class Settings {
 		$this->config = ConfigHelper::getInstance();
 		$this->active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'general';
 
-		add_action('admin_init', [$this, 'registerSettings']);
 		add_action('wp_ajax_isigestsyncapi_save_settings', [$this, 'ajaxSaveSettings']);
-		add_action('wp_ajax_isigestsyncapi_test_connection', [$this, 'ajaxTestConnection']);
 	}
 
 	/**
-	 * Registra le impostazioni del plugin.
-	 *
-	 * @return void
+	 * Mostra le notifiche dopo il salvataggio delle impostazioni.
 	 */
-	public function registerSettings() {
-		register_setting('isigestsyncapi_options', 'isigestsyncapi_settings');
+	public function showSettingsNotices() {
+		if (isset($_GET['settings-updated']) && $_GET['settings-updated']) { ?>
+        <div class="notice notice-success is-dismissible">
+            <p><?php esc_html_e('Impostazioni salvate con successo.', 'isigestsyncapi'); ?></p>
+        </div>
+        <?php }
+	}
+
+	/**
+	 * Sanitizza le impostazioni prima del salvataggio.
+	 *
+	 * @param array $input Le impostazioni da sanitizzare.
+	 * @return array Le impostazioni sanitizzate.
+	 */
+	public function sanitizeSettings($input) {
+		$settings = get_option('isigestsyncapi_settings', []);
+
+		if (is_array($input)) {
+			foreach ($input as $key => $value) {
+				if (is_bool($value) || $value === '1' || $value === '0') {
+					$settings[$key] = (bool) $value;
+				} else {
+					$settings[$key] = sanitize_text_field($value);
+				}
+			}
+		}
+
+		// Aggiorna la configurazione in memoria
+		foreach ($settings as $key => $value) {
+			$this->config->set($key, $value);
+		}
+
+		return $settings;
 	}
 
 	/**
@@ -114,7 +141,7 @@ class Settings {
 		$current_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'general';
 		$tabs = [
 			'general' => __('General', 'isigestsyncapi'),
-			'products' => __('Products', 'isigestsyncapi'),
+			'products' => __('Prodotti', 'isigestsyncapi'),
 			'stock' => __('Stock', 'isigestsyncapi'),
 			'sync' => __('Sync', 'isigestsyncapi'),
 			'advanced' => __('Advanced', 'isigestsyncapi'),
@@ -157,7 +184,6 @@ class Settings {
     	'label' => __('API Key', 'isigestsyncapi'),
     	'description' => __('API Key per l\'autenticazione delle richieste', 'isigestsyncapi'),
     	'readonly' => true,
-    	'value' => $this->config->get('API_KEY'),
     	'class' => 'regular-text',
     ]); ?>
 			</table>
@@ -168,10 +194,9 @@ class Settings {
 			<table class="form-table">
 				<?php $this->helper->renderField([
     	'type' => 'checkbox',
-    	'name' => 'reference_mode',
+    	'name' => 'products_reference_mode',
     	'label' => __('Reference Mode', 'isigestsyncapi'),
     	'description' => __('Usa il codice di riferimento invece dello SKU', 'isigestsyncapi'),
-    	'value' => $this->config->get('PRODUCTS_REFERENCE_MODE'),
     	'class' => 'isi-checkbox',
     ]); ?>
 			</table>
@@ -182,96 +207,102 @@ class Settings {
 	private function renderProductsTab() {
 		?>
 		<div class="isi-settings-group">
-			<h3><?php esc_html_e('Product Status', 'isigestsyncapi'); ?></h3>
+			<h3><?php esc_html_e('Disattivazione Prodotti', 'isigestsyncapi'); ?></h3>
 			<table class="form-table">
 				<?php
     $this->helper->renderField([
     	'type' => 'checkbox',
-    	'name' => 'disable_outofstock',
-    	'label' => __('Disable out of stock products', 'isigestsyncapi'),
+    	'name' => 'products_disable_outofstock',
+    	'label' => __('Non disponibili', 'isigestsyncapi'),
     	'description' => __(
-    		'Automatically disable products when they go out of stock',
+    		'Disattiva automaticamente i prodotti non più disponibili',
     		'isigestsyncapi',
     	),
-    	'value' => $this->config->get('PRODUCTS_DISABLE_OUTOFSTOCK'),
     ]);
 
     $this->helper->renderField([
     	'type' => 'checkbox',
-    	'name' => 'disable_without_image',
-    	'label' => __('Disable products without images', 'isigestsyncapi'),
-    	'description' => __('Automatically disable products that have no images', 'isigestsyncapi'),
-    	'value' => $this->config->get('PRODUCTS_DISABLE_WITHOUT_IMAGE'),
+    	'name' => 'products_disable_without_image',
+    	'label' => __('Senza immagini', 'isigestsyncapi'),
+    	'description' => __('Disattiva i prodotti senza immagini', 'isigestsyncapi'),
     ]);
 
     $this->helper->renderField([
     	'type' => 'checkbox',
-    	'name' => 'disable_empty_price',
-    	'label' => __('Disable products with empty price', 'isigestsyncapi'),
-    	'description' => __(
-    		'Automatically disable products that have no price set',
-    		'isigestsyncapi',
-    	),
-    	'value' => $this->config->get('PRODUCTS_DISABLE_WITH_EMPTY_PRICE'),
+    	'name' => 'products_disable_empty_price',
+    	'label' => __('Senza prezzo', 'isigestsyncapi'),
+    	'description' => __('Disattiva i prodotti senza prezzo', 'isigestsyncapi'),
     ]);
     ?>
 			</table>
 		</div>
 	
 		<div class="isi-settings-group">
-			<h3><?php esc_html_e('Product Prices', 'isigestsyncapi'); ?></h3>
+			<h3><?php esc_html_e('Prezzi', 'isigestsyncapi'); ?></h3>
 			<table class="form-table">
 				<?php
     $this->helper->renderField([
     	'type' => 'checkbox',
-    	'name' => 'sync_offers',
-    	'label' => __('Sync special offers', 'isigestsyncapi'),
-    	'description' => __('Synchronize special offers and discounts', 'isigestsyncapi'),
-    	'value' => $this->config->get('PRODUCTS_SYNC_OFFER_AS_SPECIFIC_PRICES'),
+    	'name' => 'products_price_withtax',
+    	'label' => __('Prezzi IVA inclusa', 'isigestsyncapi'),
+    	'description' => __('Aggiorna il prezzo dei prodotti includendo l\'IVA', 'isigestsyncapi'),
     ]);
 
     $this->helper->renderField([
     	'type' => 'checkbox',
-    	'name' => 'price_withtax',
-    	'label' => __('Prices include tax', 'isigestsyncapi'),
-    	'description' => __('Product prices include tax', 'isigestsyncapi'),
-    	'value' => $this->config->get('PRODUCTS_PRICE_WITHTAX'),
-    ]);
-
-    $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'round_net_price',
-    	'label' => __('Round net prices', 'isigestsyncapi'),
-    	'description' => __('Round net prices to 2 decimal places', 'isigestsyncapi'),
-    	'value' => $this->config->get('PRODUCTS_PRICE_ROUND_NET'),
+    	'name' => 'products_round_net_price',
+    	'label' => __('Arrotonda prezzi netti', 'isigestsyncapi'),
+    	'description' => __('Arrotonda i prezzi IVA escusa a 2 decimali', 'isigestsyncapi'),
+    	'value' => $this->config->get('products_round_net_price'),
     ]);
     ?>
 			</table>
 		</div>
+
+		
+		<div class="isi-settings-group">
+			<h3><?php esc_html_e('Inventario', 'isigestsyncapi'); ?></h3>
+			<table class="form-table">
+				<?php $this->helper->renderField([
+    	'type' => 'checkbox',
+    	'name' => 'products_use_stock_qty',
+    	'label' => __('Importa la giacenza', 'isigestsyncapi'),
+    	'description' => __(
+    		'Valorizza la quantità di inventario con l\'esistenza invece della disponibilità',
+    		'isigestsyncapi',
+    	),
+    ]); ?>
+			</table>
+		</div>
 	
 		<div class="isi-settings-group">
-			<h3><?php esc_html_e('Skip Updates', 'isigestsyncapi'); ?></h3>
+			<h3><?php esc_html_e('Blocca Aggiornamento', 'isigestsyncapi'); ?></h3>
 			<table class="form-table">
 				<?php
     $this->helper->renderField([
     	'type' => 'checkbox',
-    	'name' => 'dont_sync_name',
-    	'label' => __('Don\'t update product names', 'isigestsyncapi'),
-    	'value' => $this->config->get('PRODUCTS_DONT_SYNC_NAME'),
+    	'name' => 'products_dont_sync_name',
+    	'label' => __('Nome prodotto', 'isigestsyncapi'),
     ]);
 
     $this->helper->renderField([
     	'type' => 'checkbox',
-    	'name' => 'dont_sync_prices',
-    	'label' => __('Don\'t update prices', 'isigestsyncapi'),
-    	'value' => $this->config->get('PRODUCTS_DONT_SYNC_PRICES'),
+    	'name' => 'products_dont_sync_ean',
+    	'label' => __('Codice a barre', 'isigestsyncapi'),
     ]);
 
     $this->helper->renderField([
     	'type' => 'checkbox',
-    	'name' => 'dont_sync_stock',
-    	'label' => __('Don\'t update stock', 'isigestsyncapi'),
-    	'value' => $this->config->get('PRODUCTS_DONT_SYNC_STOCK'),
+    	'name' => 'products_dont_sync_prices',
+    	'label' => __('Prezzo', 'isigestsyncapi'),
+    	'value' => $this->config->get('products_dont_sync_prices'),
+    ]);
+
+    $this->helper->renderField([
+    	'type' => 'checkbox',
+    	'name' => 'products_dont_sync_stocks',
+    	'label' => __('Giacenze', 'isigestsyncapi'),
+    	'value' => $this->config->get('products_dont_sync_prices'),
     ]);?>
 			</table>
 		</div>
@@ -283,22 +314,13 @@ class Settings {
 		<div class="isi-settings-group">
 			<h3><?php esc_html_e('Stock Management', 'isigestsyncapi'); ?></h3>
 			<table class="form-table">
-				<?php
-    $this->helper->renderField([
+				<?php $this->helper->renderField([
     	'type' => 'checkbox',
-    	'name' => 'use_stock_qty',
-    	'label' => __('Use stock quantity', 'isigestsyncapi'),
-    	'description' => __('Use stock quantity instead of salable quantity', 'isigestsyncapi'),
-    	'value' => $this->config->get('PRODUCTS_USE_STOCK_AS_QTY'),
-    ]);
-
-    $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'multi_warehouse',
+    	'name' => 'products_multi_warehouse',
     	'label' => __('Enable multi-warehouse', 'isigestsyncapi'),
     	'description' => __('Enable multi-warehouse support', 'isigestsyncapi'),
-    	'value' => $this->config->get('PRODUCTS_MULTI_WAREHOUSES'),
-    ]);?>
+    	'value' => $this->config->get('products_multi_warehouse'),
+    ]); ?>
 			</table>
 		</div>
 		<?php
@@ -385,20 +407,37 @@ class Settings {
 	 * @return void
 	 */
 	public function ajaxSaveSettings() {
+		// Verifica il nonce
 		check_ajax_referer('isigestsyncapi-settings', 'nonce');
 
-		if (!current_user_can('manage_woocommerce')) {
-			wp_send_json_error(['message' => __('Unauthorized', 'isigestsyncapi')]);
+		// Verifica i permessi
+		if (!current_user_can('manage_options')) {
+			wp_send_json_error([
+				'message' => __('Non autorizzato', 'isigestsyncapi'),
+			]);
 		}
 
-		$settings = [];
-		parse_str($_POST['formData'], $settings);
+		// Recupera e analizza i dati del form
+		$form_data = [];
+		parse_str($_POST['formData'], $form_data);
 
-		foreach ($settings as $key => $value) {
-			$this->config->set($key, $value);
+		// Estrai le impostazioni dal form serializzato
+		if (isset($form_data['isigestsyncapi_settings'])) {
+			$input = $form_data['isigestsyncapi_settings'];
+
+			// Sanitizza e salva le impostazioni
+			$sanitized_settings = $this->sanitizeSettings($input);
+			update_option('isigestsyncapi_settings', $sanitized_settings);
+
+			wp_send_json_success([
+				'message' => __('Impostazioni salvate con successo', 'isigestsyncapi'),
+				'settings' => $sanitized_settings, // Per debug
+			]);
+		} else {
+			wp_send_json_error([
+				'message' => __('Nessuna impostazione da salvare', 'isigestsyncapi'),
+			]);
 		}
-
-		wp_send_json_success(['message' => __('Settings saved successfully', 'isigestsyncapi')]);
 	}
 
 	/**

@@ -59,6 +59,9 @@ class SettingsHelper {
 		$name = 'isigestsyncapi_settings[' . $args['name'] . ']';
 		$id = 'isigestsyncapi_' . $args['name'];
 
+		// Calcoliamo il calore in base al nome
+		$args['value'] = $this->config->get($args['name'], $args['value']);
+
 		switch ($args['type']) {
 			case 'text':
 			case 'password':
@@ -160,23 +163,25 @@ class SettingsHelper {
 	 */
 	private function renderCheckbox($name, $id, $args) {
 		?>
-		<label for="<?php echo esc_attr($id); ?>">
-			<input 
-				type="checkbox"
-				id="<?php echo esc_attr($id); ?>"
-				name="<?php echo esc_attr($name); ?>"
-				value="1"
-				<?php checked($args['value'], true); ?>
-				class="<?php echo esc_attr($args['class']); ?>"
-				<?php echo $args['disabled'] ? 'disabled' : ''; ?>
-				<?php $this->renderDataAttributes($args['data']); ?>
-			>
-			<?php echo esc_html($args['label']); ?>
-		</label>
-		<?php if ($args['description']) {
-  	echo '<p class="description">' . esc_html($args['description']) . '</p>';
-  }
+    <label for="<?php echo esc_attr($id); ?>">
+        <input type="hidden" name="<?php echo esc_attr($name); ?>" value="0">
+        <input 
+            type="checkbox"
+            id="<?php echo esc_attr($id); ?>"
+            name="<?php echo esc_attr($name); ?>"
+            value="1"
+            <?php checked($args['value'], true); ?>
+            class="<?php echo esc_attr($args['class']); ?>"
+            <?php echo $args['disabled'] ? 'disabled' : ''; ?>
+            <?php $this->renderDataAttributes($args['data']); ?>
+        >
+        <?php echo esc_html($args['label']); ?>
+    </label>
+    <?php if ($args['description']) {
+    	echo '<p class="description">' . esc_html($args['description']) . '</p>';
+    }
 	}
+
 	/**
 	 * Renderizza un campo radio.
 	 *

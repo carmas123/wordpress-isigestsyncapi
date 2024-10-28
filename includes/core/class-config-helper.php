@@ -39,16 +39,14 @@ class ConfigHelper extends ConfigBaseHelper {
 	 * Restituisce il campo da utilizzare per la quantità del prodotto.
 	 *
 	 * Questo metodo determina quale campo utilizzare per la quantità del prodotto
-	 * basandosi sulla configurazione del plugin. Se 'PRODUCTS_USE_STOCK_AS_QTY'
+	 * basandosi sulla configurazione del plugin. Se 'products_use_stock_qty'
 	 * è impostato su true, verrà utilizzato 'stock_quantity', altrimenti 'quantity'.
 	 *
 	 * @since 1.0.0
 	 *
 	 */
 	public static function getQuantityField(): string {
-		return self::getInstance()->get('PRODUCTS_USE_STOCK_AS_QTY')
-			? 'stock_quantity'
-			: 'quantity';
+		return self::getInstance()->get('products_use_stock_qty') ? 'stock_quantity' : 'quantity';
 	}
 
 	/**
@@ -59,9 +57,7 @@ class ConfigHelper extends ConfigBaseHelper {
 	 * @return bool
 	 */
 	public static function productUseTC(): string {
-		return self::getInstance()->get('PRODUCTS_USE_STOCK_AS_QTY')
-			? 'stock_quantity'
-			: 'quantity';
+		return self::getInstance()->get('products_use_stock_qty') ? 'stock_quantity' : 'quantity';
 	}
 
 	/**

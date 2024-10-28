@@ -100,7 +100,7 @@ class Router {
 	private function checkApiPermission() {
 		$headers = $this->getRequestHeaders();
 		$api_key = isset($headers['X-Isigest-Authtoken']) ? $headers['X-Isigest-Authtoken'] : '';
-		$valid_key = ConfigHelper::getInstance()->get('API_KEY');
+		$valid_key = ConfigHelper::getInstance()->get('api_key');
 
 		return $api_key === $valid_key;
 	}

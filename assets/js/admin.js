@@ -1,20 +1,27 @@
 jQuery(document).ready(function ($) {
-	// Rimuoviamo il vecchio handler che potrebbe interferire con la navigazione
-	/*$('.nav-tab-wrapper .nav-tab').on('click', function(e) {
-        e.preventDefault(); // Questo era il problema - preveniva la navigazione normale
-        var target = $(this).data('tab');
-        $('.nav-tab-wrapper .nav-tab').removeClass('nav-tab-active');
-        $(this).addClass('nav-tab-active');
-    });*/
+	// Creiamo il container per le notifiche se non esiste
+	if (!$('#isi-notifications').length) {
+		$('<div id="isi-notifications"></div>')
+			.css({
+				position: 'fixed',
+				top: '32px', // Considera la admin bar di WordPress
+				right: '20px',
+				'z-index': '9999',
+				width: '300px'
+			})
+			.appendTo('body');
+	}
 
-	// Gestiamo solo il salvataggio delle impostazioni
-	$('#isi-settings-form').on('submit', function (e) {
+	// Gestiamo il salvataggio delle impostazioni
+	$('form[action="options.php"]').on('submit', function (e) {
 		e.preventDefault();
 
 		var $form = $(this);
-		var $submitButton = $form.find('input[type="submit"]');
+		var $submitButton = $('#submit');
+		var originalButtonText = $submitButton.val();
 
-		$submitButton.prop('disabled', true);
+		// Disabilita il pulsante durante il salvataggio
+		$submitButton.val('Salvataggio...').prop('disabled', true);
 
 		$.ajax({
 			url: isigestsyncapi.ajaxurl,
@@ -26,61 +33,99 @@ jQuery(document).ready(function ($) {
 			},
 			success: function (response) {
 				if (response.success) {
-					showNotice('success', 'Impostazioni salvate con successo');
+					showNotice('success', response.data.message);
 				} else {
 					showNotice('error', response.data.message || 'Errore durante il salvataggio');
 				}
 			},
 			error: function () {
-				showNotice('error', 'Errore di connessione');
+				showNotice('error', 'Si è verificato un problema');
 			},
 			complete: function () {
-				$submitButton.prop('disabled', false);
-			}
-		});
-	});
-
-	// Test connessione API
-	$('#test-api-connection').on('click', function (e) {
-		e.preventDefault();
-		var $button = $(this);
-		$button.prop('disabled', true);
-
-		$.ajax({
-			url: isigestsyncapi.ajaxurl,
-			type: 'POST',
-			data: {
-				action: 'isigestsyncapi_test_connection',
-				nonce: isigestsyncapi.nonce
-			},
-			success: function (response) {
-				if (response.success) {
-					showNotice('success', 'Connessione API verificata con successo');
-				} else {
-					showNotice('error', response.data.message || 'Errore di connessione API');
-				}
-			},
-			error: function () {
-				showNotice('error', 'Errore durante il test della connessione');
-			},
-			complete: function () {
-				$button.prop('disabled', false);
+				// Ripristina il testo originale del pulsante
+				$submitButton.val(originalButtonText).prop('disabled', false);
 			}
 		});
 	});
 
 	function showNotice(type, message) {
-		var noticeClass = 'notice-' + (type === 'success' ? 'success' : 'error');
-		var $notice = $(
-			'<div class="notice ' + noticeClass + ' is-dismissible"><p>' + message + '</p></div>'
-		);
+		var icon = type === 'success' ? '✓' : '⚠';
+		var backgroundColor = type === 'success' ? '#4CAF50' : '#f44336';
 
-		$('.isi-settings-wrap').prepend($notice);
+		var $notification = $('<div class="isi-notification">').css({
+			'background-color': backgroundColor,
+			color: 'white',
+			padding: '15px 20px',
+			'margin-bottom': '10px',
+			'border-radius': '4px',
+			'box-shadow': '0 2px 5px rgba(0,0,0,0.2)',
+			display: 'flex',
+			'align-items': 'center',
+			'justify-content': 'space-between',
+			opacity: '0',
+			transform: 'translateX(50px)',
+			transition: 'all 0.3s ease'
+		});
 
+		var $content = $('<div class="notification-content">')
+			.css({
+				display: 'flex',
+				'align-items': 'center',
+				gap: '10px'
+			})
+			.appendTo($notification);
+
+		$('<span class="notification-icon">')
+			.text(icon)
+			.css({
+				'font-size': '20px',
+				'font-weight': 'bold'
+			})
+			.appendTo($content);
+
+		$('<span class="notification-message">').text(message).appendTo($content);
+
+		var $closeButton = $('<button type="button" class="notification-close">')
+			.html('&times;')
+			.css({
+				background: 'none',
+				border: 'none',
+				color: 'white',
+				'font-size': '20px',
+				cursor: 'pointer',
+				padding: '0 5px',
+				'margin-left': '10px'
+			})
+			.appendTo($notification);
+
+		$closeButton.on('click', function () {
+			hideNotification($notification);
+		});
+
+		$('#isi-notifications').prepend($notification);
+
+		// Anima l'entrata
 		setTimeout(function () {
-			$notice.fadeOut(function () {
+			$notification.css({
+				opacity: '1',
+				transform: 'translateX(0)'
+			});
+		}, 10);
+
+		// Rimuovi automaticamente dopo 5 secondi
+		setTimeout(function () {
+			hideNotification($notification);
+		}, 5000);
+	}
+
+	function hideNotification($notification) {
+		$notification
+			.css({
+				opacity: '0',
+				transform: 'translateX(50px)'
+			})
+			.one('transitionend', function () {
 				$(this).remove();
 			});
-		}, 3000);
 	}
 });

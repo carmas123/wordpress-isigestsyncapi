@@ -89,7 +89,7 @@ class ProductStatusHandler extends BaseService {
 		}
 
 		// Controllo immagine
-		if ($this->config->get('PRODUCTS_DISABLE_WITHOUT_IMAGE') && !$product->get_image_id()) {
+		if ($this->config->get('products_disable_without_image') && !$product->get_image_id()) {
 			Utilities::log(
 				sprintf('Prodotto %d disattivato: nessuna immagine', $product->get_id()),
 				'info',
@@ -98,7 +98,7 @@ class ProductStatusHandler extends BaseService {
 		}
 
 		// Controllo prezzo
-		if ($this->config->get('PRODUCTS_DISABLE_WITH_EMPTY_PRICE')) {
+		if ($this->config->get('products_disable_empty_price')) {
 			$price = $product->get_regular_price();
 			if (empty($price) || $price <= 0) {
 				Utilities::log(
@@ -110,7 +110,7 @@ class ProductStatusHandler extends BaseService {
 		}
 
 		// Controllo stock
-		if ($this->config->get('PRODUCTS_DISABLE_OUTOFSTOCK')) {
+		if ($this->config->get('products_disable_outofstock')) {
 			$stock_quantity = $product->get_stock_quantity();
 			if (is_null($stock_quantity) || $stock_quantity <= 0) {
 				Utilities::log(

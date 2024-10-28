@@ -272,9 +272,7 @@ class StockService extends BaseService {
 	 * @return string
 	 */
 	private function getQuantityField() {
-		return $this->config->get('PRODUCTS_USE_STOCK_AS_QTY')
-			? 'stock_quantity'
-			: 'salable_quantity';
+		return $this->config->get('products_use_stock_qty') ? 'stock_quantity' : 'salable_quantity';
 	}
 
 	/**

@@ -92,6 +92,7 @@ class ProductService extends BaseService {
 			// Gestione varianti
 			if ($use_attributes) {
 				$this->handleVariants($product, $data);
+				$this->updateParentPriceMeta($product);
 			}
 
 			// Salviamo il prodotto
@@ -189,7 +190,7 @@ class ProductService extends BaseService {
 		}
 
 		// Prezzo
-		if (!$this->config->get('PRODUCTS_DONT_SYNC_PRICES')) {
+		if (!$this->config->get('products_dont_sync_prices')) {
 			if (isset($data['price'])) {
 				$product->set_regular_price($data['price']);
 			}
@@ -235,61 +236,28 @@ class ProductService extends BaseService {
 	}
 
 	/**
-	 * Prepara i dati di una variante.
+	 * Updates the price metadata for a variable product.
 	 *
-	 * @param array $variant I dati della variante.
-	 * @return array|null
+	 * This method calculates and updates various price-related metadata for a variable product
+	 * based on its variations' prices. It sets the minimum and maximum prices for regular,
+	 * sale, and overall prices.
+	 *
+	 * @param \WC_Product_Variable $product The variable product to update.
+	 *
+	 * @return void
 	 */
-	private function prepareVariationData($variant) {
-		if (empty($variant['sku'])) {
-			return null;
-		}
-
-		$attributes = [];
-
-		// Gestione attributi Taglie e Colori
-		if (!empty($variant['size_name'])) {
-			$attributes['pa_taglia'] = $variant['size_name'];
-		}
-		if (!empty($variant['color_name'])) {
-			$attributes['pa_colore'] = $variant['color_name'];
-		}
-
-		// Gestione attributi standard
-		for ($i = 1; $i <= 3; $i++) {
-			$type_key = "variant_type$i";
-			$value_key = "variant_value$i";
-
-			if (!empty($variant[$type_key]) && !empty($variant[$value_key])) {
-				$attr_name = 'pa_' . sanitize_title($variant[$type_key]);
-				$attributes[$attr_name] = $variant[$value_key];
-			}
-		}
-
-		return [
-			'sku' => $variant['sku'],
-			'regular_price' => (float) ($variant['price'] ?? 0),
-			'sale_price' => (float) ($variant['sale_price'] ?? 0),
-			'stock_quantity' => (int) ($variant['stock_quantity'] ?? 0),
-			'attributes' => $attributes,
-			'dimensions' => [
-				'width' => (float) ($variant['width'] ?? 0),
-				'height' => (float) ($variant['height'] ?? 0),
-				'length' => (float) ($variant['depth'] ?? 0),
-				'weight' => (float) ($variant['weight'] ?? 0),
-			],
-		];
-	}
-
-	private function update_parent_price_meta($product) {
+	private function updateParentPriceMeta($product) {
+		// Get all variation prices
 		$prices = $product->get_variation_prices(true);
 
+		// Update overall price meta
 		if (!empty($prices['price'])) {
 			update_post_meta($product->get_id(), '_price', min($prices['price']));
 			update_post_meta($product->get_id(), '_min_variation_price', min($prices['price']));
 			update_post_meta($product->get_id(), '_max_variation_price', max($prices['price']));
 		}
 
+		// Update regular price meta
 		if (!empty($prices['regular_price'])) {
 			update_post_meta(
 				$product->get_id(),
@@ -303,6 +271,7 @@ class ProductService extends BaseService {
 			);
 		}
 
+		// Update sale price meta
 		if (!empty($prices['sale_price'])) {
 			update_post_meta(
 				$product->get_id(),
@@ -608,26 +577,25 @@ class ProductService extends BaseService {
 	 * Prepara gli attributi di una variazione
 	 *
 	 * @param array $variant Dati della variante
+	 * @param bool $is_tc Flag per utilizzare Taglie&Colori
 	 * @return array
 	 */
-	private function prepareVariationAttributes($variant) {
+	private function prepareVariationAttributes($variant, $is_tc) {
 		$attributes = [];
 
-		if ($this->config->get('TC_ENABLED') && !empty($variant['size_name'])) {
+		if ($is_tc) {
 			$attributes['pa_taglia'] = $variant['size_name'];
-		}
-		if ($this->config->get('TC_ENABLED') && !empty($variant['color_name'])) {
 			$attributes['pa_colore'] = $variant['color_name'];
-		}
+		} else {
+			// Attributi standard
+			for ($i = 1; $i <= 3; $i++) {
+				$type_key = "variant_type$i";
+				$value_key = "variant_value$i";
 
-		// Attributi standard
-		for ($i = 1; $i <= 3; $i++) {
-			$type_key = "variant_type$i";
-			$value_key = "variant_value$i";
-
-			if (!empty($variant[$type_key]) && !empty($variant[$value_key])) {
-				$attr_name = sanitize_title($variant[$type_key]);
-				$attributes["pa_$attr_name"] = $variant[$value_key];
+				if (!empty($variant[$type_key]) && !empty($variant[$value_key])) {
+					$attr_name = sanitize_title($variant[$type_key]);
+					$attributes["pa_$attr_name"] = $variant[$value_key];
+				}
 			}
 		}
 
@@ -838,7 +806,7 @@ class ProductService extends BaseService {
 		$variation->set_sku($variation_data['sku']);
 
 		// Impostiamo i prezzi
-		if (!$this->config->get('PRODUCTS_DONT_SYNC_PRICES')) {
+		if (!$this->config->get('products_dont_sync_prices')) {
 			$variation->set_regular_price($variation_data['regular_price']);
 			$variation->set_sale_price($variation_data['sale_price']);
 
@@ -857,15 +825,21 @@ class ProductService extends BaseService {
 		}
 
 		// Impostiamo lo stock
-		if (!$this->config->get('PRODUCTS_DONT_SYNC_STOCK')) {
+		if (!$this->config->get('products_dont_sync_stocks')) {
 			$variation->set_manage_stock(true);
-			$variation->set_stock_quantity($variation_data['stock_quantity']);
+			$variation->set_stock_quantity((int) $variation_data[ConfigHelper::getQuantityField()]);
 			update_post_meta($variation->get_id(), '_manage_stock', 'yes');
-			update_post_meta($variation->get_id(), '_stock', $variation_data['stock_quantity']);
+			update_post_meta(
+				$variation->get_id(),
+				'_stock',
+				(int) $variation_data[ConfigHelper::getQuantityField()],
+			);
 			update_post_meta(
 				$variation->get_id(),
 				'_stock_status',
-				$variation_data['stock_quantity'] > 0 ? 'instock' : 'outofstock',
+				(int) $variation_data[ConfigHelper::getQuantityField()] > 0
+					? 'instock'
+					: 'outofstock',
 			);
 		}
 
@@ -1055,22 +1029,31 @@ class ProductService extends BaseService {
 		$variation->set_sku($data['sku']);
 
 		// Imposta prezzi
-		if (!$this->config->get('PRODUCTS_DONT_SYNC_PRICES')) {
+		if (!$this->config->get('products_dont_sync_prices')) {
 			$variation->set_regular_price($data['price'] ?? 0);
 			$variation->set_sale_price($data['sale_price'] ?? 0);
 		}
 
 		// Imposta stock
-		if (!$this->config->get('PRODUCTS_DONT_SYNC_STOCK')) {
+		if (!$this->config->get('products_dont_sync_stocks')) {
 			$variation->set_manage_stock(true);
-			$variation->set_stock_quantity($data['stock_quantity'] ?? 0);
+			$variation->set_stock_quantity((int) $data[ConfigHelper::getQuantityField()] ?? 0);
 			$variation->set_stock_status(
-				($data['stock_quantity'] ?? 0) > 0 ? 'instock' : 'outofstock',
+				((int) $data[ConfigHelper::getQuantityField()] ?? 0) > 0 ? 'instock' : 'outofstock',
 			);
 		}
 
 		// Imposta stato
 		$variation->set_status('publish');
+
+		// Codice a barre
+		if (isset($data['ean13'])) {
+			update_post_meta(
+				$variation->get_id(),
+				ConfigHelper::getBarcodeMetaKey(),
+				sanitize_text_field($data['ean13']),
+			);
+		}
 
 		// Imposta attributi
 		$attributes = [];
@@ -1081,15 +1064,6 @@ class ProductService extends BaseService {
 			if (!empty($data['color_name'])) {
 				$attributes['pa_colore'] = $data['color_name'];
 			}
-		}
-
-		// Codice a barre
-		if (isset($data['ean13'])) {
-			update_post_meta(
-				$variation->get_id(),
-				ConfigHelper::getBarcodeMetaKey(),
-				sanitize_text_field($data['ean13']),
-			);
 		}
 
 		// Attributi standard

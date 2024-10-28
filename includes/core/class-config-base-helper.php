@@ -37,26 +37,25 @@ abstract class ConfigBaseHelper {
 	 */
 	private $boolean_fields = [
 		// Prodotti
-		'PRODUCTS_DISABLE_OUTOFSTOCK',
-		'PRODUCTS_DISABLE_WITHOUT_IMAGE',
-		'PRODUCTS_DISABLE_WITH_EMPTY_PRICE',
+		'products_disable_outofstock',
+		'products_disable_without_image',
+		'products_disable_empty_price',
 		'PRODUCTS_USE_CODE_AS_REFERENCE',
-		'PRODUCTS_USE_STOCK_AS_QTY',
+		'products_use_stock_qty',
 		'PRODUCTS_REFERENCE_IN_MPN',
-		'PRODUCTS_SYNC_OFFER_AS_SPECIFIC_PRICES',
 		'PRODUCTS_ADVANCED_PRICES',
 		'PRODUCTS_MULTI_WAREHOUSES',
 		'PRODUCTS_PRICE_WITHTAX',
-		'PRODUCTS_PRICE_ROUND_NET',
-		'PRODUCTS_REFERENCE_MODE',
+		'products_round_net_price',
+		'products_reference_mode',
 
 		// Blocca Aggiornamenti
-		'PRODUCTS_DONT_SYNC_EAN',
-		'PRODUCTS_DONT_SYNC_NAME',
+		'products_dont_sync_ean',
+		'products_dont_sync_name',
 		'PRODUCTS_DONT_SYNC_REFERENCE',
 		'PRODUCTS_DONT_SYNC_CATEGORIES',
 		'PRODUCTS_DONT_SYNC_DIMENSION_AND_WEIGHT',
-		'PRODUCTS_DONT_SYNC_PRICES',
+		'products_dont_sync_prices',
 
 		// Taglie & Colori
 		'TC_ENABLED',
@@ -69,7 +68,7 @@ abstract class ConfigBaseHelper {
 	 *
 	 * @var array
 	 */
-	private $string_fields = ['API_KEY', 'TC_SIZE_ATTRIBUTE', 'TC_COLOR_ATTRIBUTE'];
+	private $string_fields = ['api_key', 'TC_SIZE_ATTRIBUTE', 'TC_COLOR_ATTRIBUTE'];
 
 	/**
 	 * Definizioni delle opzioni intere.
@@ -181,33 +180,32 @@ abstract class ConfigBaseHelper {
 	private function load_default_options() {
 		$defaults = [
 			// API
-			'API_KEY' => $this->generate_api_key(),
+			'api_key' => $this->generate_api_key(),
 
 			// Prodotti
-			'PRODUCTS_DISABLE_OUTOFSTOCK' => true,
-			'PRODUCTS_DISABLE_WITHOUT_IMAGE' => false,
-			'PRODUCTS_DISABLE_WITH_EMPTY_PRICE' => true,
+			'products_disable_outofstock' => true,
+			'products_disable_without_image' => true,
+			'products_disable_empty_price' => true,
 			'PRODUCTS_USE_CODE_AS_REFERENCE' => false,
-			'PRODUCTS_USE_STOCK_AS_QTY' => true,
+			'products_use_stock_qty' => true,
 			'PRODUCTS_REFERENCE_IN_MPN' => false,
-			'PRODUCTS_SYNC_OFFER_AS_SPECIFIC_PRICES' => true,
 			'PRODUCTS_ADVANCED_PRICES' => false,
 			'PRODUCTS_MULTI_WAREHOUSES' => false,
 			'PRODUCTS_PRICE_WITHTAX' => false,
-			'PRODUCTS_PRICE_ROUND_NET' => true,
-			'PRODUCTS_REFERENCE_MODE' => false,
+			'products_round_net_price' => true,
+			'products_reference_mode' => false,
 
 			// Descrizioni
 			'PRODUCTS_DESCRIPTION' => 0,
 			'PRODUCTS_SHORT_DESCRIPTION' => 0,
 
 			// Non sincronizzare
-			'PRODUCTS_DONT_SYNC_EAN' => false,
-			'PRODUCTS_DONT_SYNC_NAME' => false,
+			'products_dont_sync_ean' => false,
+			'products_dont_sync_name' => false,
 			'PRODUCTS_DONT_SYNC_REFERENCE' => false,
 			'PRODUCTS_DONT_SYNC_CATEGORIES' => false,
 			'PRODUCTS_DONT_SYNC_DIMENSION_AND_WEIGHT' => false,
-			'PRODUCTS_DONT_SYNC_PRICES' => false,
+			'products_dont_sync_prices' => false,
 
 			// Taglie & Colori
 			'TC_ENABLED' => false,
