@@ -111,7 +111,7 @@ class Router {
 	 */
 	private function checkApiPermission() {
 		$headers = $this->getRequestHeaders();
-		$api_key = isset($headers['X-API-Key']) ? $headers['X-API-Key'] : '';
+		$api_key = isset($headers['X-ISIGest-AuthToken']) ? $headers['X-ISIGest-AuthToken'] : '';
 		$valid_key = ConfigHelper::getInstance()->get('API_KEY');
 
 		return $api_key === $valid_key;
