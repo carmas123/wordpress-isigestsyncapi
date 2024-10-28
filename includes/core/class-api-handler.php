@@ -65,13 +65,11 @@ class ApiHandler {
 	 * @return array
 	 * @throws ISIGestSyncApiException Se la richiesta non è valida.
 	 */
-	public function createUpdateProduct($request) {
+	public function createUpdateProduct($body) {
 		try {
-			if (!isset($request['body'])) {
+			if (!isset($body)) {
 				throw new ISIGestSyncApiBadRequestException('Body non valido');
 			}
-
-			$body = $request['body'];
 
 			// Verifica parametro "isigest" con le informazioni
 			if (

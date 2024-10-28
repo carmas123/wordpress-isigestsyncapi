@@ -22,13 +22,7 @@ class Router {
 
 		// Verifica l'autenticazione
 		if (!$this->checkApiPermission()) {
-			$this->sendResponse(
-				[
-					'error' => 'Unauthorized',
-					'message' => 'Invalid API Key',
-				],
-				401,
-			);
+			$this->sendJsonUnauthorized();
 			exit();
 		}
 
@@ -36,17 +30,14 @@ class Router {
 		$request_path = $this->getRequestPath();
 		$method = $_SERVER['REQUEST_METHOD'];
 
+		// Forza l'inizializzazione di WooCommerce
+		$this->initializeWooCommerce();
+
 		try {
 			$response = $this->routeRequest($method, $request_path);
-			$this->sendResponse($response);
+			$this->sendJsonData($response);
 		} catch (\Exception $e) {
-			$this->sendResponse(
-				[
-					'error' => 'Error',
-					'message' => $e->getMessage(),
-				],
-				500,
-			);
+			$this->sendJsonException($e);
 		}
 		exit();
 	}
@@ -65,7 +56,10 @@ class Router {
 	private function getRequestPath() {
 		$request_uri = trim($_SERVER['REQUEST_URI'], '/');
 		$parts = explode('isigestsyncapi/', $request_uri);
-		return isset($parts[1]) ? trim($parts[1], '/') : '';
+		$full_path = isset($parts[1]) ? trim($parts[1], '/') : '';
+
+		// Usa parse_url per ottenere solo il path
+		return parse_url($full_path, PHP_URL_PATH) ?? '';
 	}
 
 	/**
@@ -95,13 +89,7 @@ class Router {
 				return $this->api_handler->handleImage($body);
 
 			default:
-				$this->sendResponse(
-					[
-						'error' => 'Not Found',
-						'message' => 'Endpoint not found',
-					],
-					404,
-				);
+				$this->sendJsonNotFoundRequest();
 				exit();
 		}
 	}
@@ -111,7 +99,7 @@ class Router {
 	 */
 	private function checkApiPermission() {
 		$headers = $this->getRequestHeaders();
-		$api_key = isset($headers['X-ISIGest-AuthToken']) ? $headers['X-ISIGest-AuthToken'] : '';
+		$api_key = isset($headers['X-Isigest-Authtoken']) ? $headers['X-Isigest-Authtoken'] : '';
 		$valid_key = ConfigHelper::getInstance()->get('API_KEY');
 
 		return $api_key === $valid_key;
@@ -149,12 +137,148 @@ class Router {
 	}
 
 	/**
-	 * Invia la risposta API
+	 * Invia una risposta JSON con dati
+	 *
+	 * @param mixed $data I dati da inviare
+	 * @param int|null $startedAt Timestamp di inizio per calcolare la durata
 	 */
-	private function sendResponse($data, $status = 200) {
-		http_response_code($status);
-		header('Content-Type: application/json');
-		echo json_encode($data);
-		exit();
+	protected function sendJsonData($data, ?int $startedAt = null) {
+		ob_clean();
+		header('Content-Type: application/json; charset=utf-8');
+		http_response_code(200);
+
+		$result = new \stdClass();
+		$result->success = true;
+		if ($data !== null) {
+			$result->data = $data;
+		}
+
+		if ($startedAt) {
+			$result->duration = (int) (round(microtime(true) - $startedAt, 3) * 1000);
+		}
+
+		$response = json_encode($result, JSON_UNESCAPED_UNICODE);
+
+		echo $response;
+	}
+
+	/**
+	 * Invia una risposta di successo senza dati
+	 */
+	protected function sendJsonSuccess(?int $startedAt = null) {
+		$this->sendJsonData(null, $startedAt);
+	}
+
+	/**
+	 * Invia una risposta di errore
+	 *
+	 * @param string $error Messaggio di errore
+	 * @param int $code Codice HTTP di stato
+	 * @param bool $die Se terminare l'esecuzione
+	 */
+	protected function sendJsonError(string $error, int $code = 400) {
+		ob_clean();
+		header('Content-Type: application/json; charset=utf-8');
+		http_response_code($code);
+
+		$result = new \stdClass();
+		$result->success = false;
+		$result->code = $code;
+		$result->error = $error;
+
+		$response = json_encode($result, JSON_UNESCAPED_UNICODE);
+
+		echo $response;
+	}
+
+	/**
+	 * Invia una risposta di errore per eccezioni
+	 *
+	 * @param \Throwable $error L'eccezione da gestire
+	 * @param int $code Codice HTTP di stato
+	 * @param bool $die Se terminare l'esecuzione
+	 */
+	protected function sendJsonException(\Throwable $error, int $code = 500, bool $die = true) {
+		ob_clean();
+		header('Content-Type: application/json; charset=utf-8');
+		http_response_code($code);
+
+		$result = new \stdClass();
+		$result->success = false;
+		$result->code = $code;
+		$result->error = $error->getMessage();
+
+		// Gestione eccezioni personalizzate
+		if ($error instanceof ISIGestSyncApiException && method_exists($error, 'getDetail')) {
+			$result->detail = $error->getDetail();
+		}
+
+		$response = json_encode($result, JSON_UNESCAPED_UNICODE);
+
+		if ($die) {
+			exit($response);
+		}
+		echo $response;
+	}
+
+	/**
+	 * Invia una risposta di non autorizzato (401)
+	 */
+	protected function sendJsonUnauthorized() {
+		$this->sendJsonError('Unauthorized', 401);
+	}
+
+	/**
+	 * Invia una risposta di richiesta non valida (400)
+	 */
+	protected function sendJsonBadRequest() {
+		$this->sendJsonError('Bad request', 400);
+	}
+
+	/**
+	 * Invia una risposta di richiesta non trovato (404)
+	 */
+	protected function sendJsonNotFoundRequest() {
+		$this->sendJsonError('Not found', 404);
+	}
+
+	/**
+	 * Invia una risposta di risorsa bloccata (423)
+	 */
+	protected function sendJsonAlreadyRunning() {
+		$this->sendJsonError('Importazione già in esecuzione', 423);
+	}
+
+	function initializeWooCommerce() {
+		if (!class_exists('WooCommerce')) {
+			include_once WP_PLUGIN_DIR . '/woocommerce/woocommerce.php';
+		}
+
+		// Inizializza WC se non è già fatto
+		if (!isset($GLOBALS['woocommerce'])) {
+			$GLOBALS['woocommerce'] = WC();
+		}
+
+		// Inizializza il resto di WC
+		$GLOBALS['woocommerce']->init();
+
+		// Forza l'inizializzazione dei post types
+		\WC_Post_types::register_post_types();
+
+		// Forza l'inizializzazione delle tassonomie
+		\WC_Post_types::register_taxonomies();
+
+		// Forza le azioni
+		if (!did_action('woocommerce_init')) {
+			do_action('woocommerce_init');
+		}
+
+		if (!did_action('woocommerce_after_register_taxonomy')) {
+			do_action('woocommerce_after_register_taxonomy');
+		}
+
+		if (!did_action('woocommerce_after_register_post_type')) {
+			do_action('woocommerce_after_register_post_type');
+		}
 	}
 }

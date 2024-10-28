@@ -10,6 +10,7 @@
 
 namespace ISIGestSyncAPI\Services;
 
+use ISIGestSyncAPI\Core\DbHelper;
 use ISIGestSyncAPI\Core\Utilities;
 use ISIGestSyncAPI\Core\ConfigHelper;
 use ISIGestSyncAPI\Core\ISIGestSyncApiException;
@@ -20,14 +21,7 @@ use ISIGestSyncAPI\Core\ISIGestSyncApiBadRequestException;
  *
  * @since 1.0.0
  */
-class StockService {
-	/**
-	 * Configurazione del plugin.
-	 *
-	 * @var ConfigHelper
-	 */
-	private $config;
-
+class StockService extends BaseService {
 	/**
 	 * Handler dello status dei prodotti.
 	 *
@@ -39,7 +33,7 @@ class StockService {
 	 * Costruttore.
 	 */
 	public function __construct() {
-		$this->config = ConfigHelper::getInstance();
+		parent::__construct();
 		$this->status_handler = new ProductStatusHandler();
 	}
 
@@ -55,7 +49,7 @@ class StockService {
 		global $wpdb;
 
 		try {
-			$wpdb->query('START TRANSACTION');
+			DbHelper::startTransaction();
 
 			// Verifichiamo se cercare per reference o per sku
 			if ($reference_mode) {
@@ -95,7 +89,7 @@ class StockService {
 				$this->status_handler->checkAndUpdateProductStatus($product_id);
 			}
 
-			$wpdb->query('COMMIT');
+			DbHelper::commitTransaction();
 
 			return [
 				'post_id' => $product_id,
@@ -103,7 +97,7 @@ class StockService {
 				'new_quantity' => $this->getStockQuantity($data),
 			];
 		} catch (\Exception $e) {
-			$wpdb->query('ROLLBACK');
+			DbHelper::rollbackTransaction();
 			throw new ISIGestSyncApiException(
 				'Errore durante l\'aggiornamento dello stock: ' . $e->getMessage(),
 			);

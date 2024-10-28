@@ -18,19 +18,12 @@ use ISIGestSyncAPI\Core\Utilities;
  *
  * @since 1.0.0
  */
-class ProductStatusHandler {
-	/**
-	 * Configurazione del plugin.
-	 *
-	 * @var ConfigHelper
-	 */
-	private $config;
-
+class ProductStatusHandler extends BaseService {
 	/**
 	 * Costruttore.
 	 */
 	public function __construct() {
-		$this->config = ConfigHelper::getInstance();
+		parent::__construct();
 	}
 
 	/**

@@ -10,28 +10,17 @@
 
 namespace ISIGestSyncAPI\Services;
 
-use ISIGestSyncAPI\Core\Utilities;
-use ISIGestSyncAPI\Core\ConfigHelper;
-use ISIGestSyncAPI\Core\ISIGestSyncApiException;
-
 /**
  * Classe ProductOffersHandler per la gestione delle offerte dei prodotti.
  *
  * @since 1.0.0
  */
-class ProductOffersHandler {
-	/**
-	 * Configurazione del plugin.
-	 *
-	 * @var ConfigHelper
-	 */
-	private $config;
-
+class ProductOffersHandler extends BaseService {
 	/**
 	 * Costruttore.
 	 */
 	public function __construct() {
-		$this->config = ConfigHelper::getInstance();
+		parent::__construct();
 	}
 
 	/**
@@ -42,7 +31,7 @@ class ProductOffersHandler {
 	 * @param array   $price_data   Dati del prezzo.
 	 * @return void
 	 */
-	public function updateProductOffer($product_id, $variation_id = 0, $price_data) {
+	public function updateProductOffer($product_id, $variation_id, $price_data) {
 		if (!$this->config->get('PRODUCTS_SYNC_OFFER_AS_SPECIFIC_PRICES')) {
 			return;
 		}

@@ -177,6 +177,38 @@ class SettingsHelper {
   	echo '<p class="description">' . esc_html($args['description']) . '</p>';
   }
 	}
+	/**
+	 * Renderizza un campo radio.
+	 *
+	 * @param string $name Nome del campo.
+	 * @param string $id   ID del campo.
+	 * @param array  $args Argomenti del campo.
+	 * @return void
+	 */
+	private function renderRadio($name, $id, $args) {
+		?>
+	<fieldset>
+		<?php foreach ($args['options'] as $key => $label): ?>
+			<label for="<?php echo esc_attr($id . '_' . $key); ?>">
+				<input 
+					type="radio"
+					id="<?php echo esc_attr($id . '_' . $key); ?>"
+					name="<?php echo esc_attr($name); ?>"
+					value="<?php echo esc_attr($key); ?>"
+					<?php checked($args['value'], $key); ?>
+					class="<?php echo esc_attr($args['class']); ?>"
+					<?php echo $args['disabled'] ? 'disabled' : ''; ?>
+					<?php echo $args['required'] ? 'required' : ''; ?>
+					<?php $this->renderDataAttributes($args['data']); ?>
+				>
+				<?php echo esc_html($label); ?>
+			</label><br>
+		<?php endforeach; ?>
+	</fieldset>
+	<?php if ($args['description']) {
+ 	echo '<p class="description">' . esc_html($args['description']) . '</p>';
+ }
+	}
 
 	/**
 	 * Renderizza un campo select.

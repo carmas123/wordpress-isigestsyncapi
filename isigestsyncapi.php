@@ -26,6 +26,11 @@ if (!defined('ISIGESTSYNCAPI_PLUGIN_FILE')) {
 // Carica l'autoloader
 require_once plugin_dir_path(__FILE__) . '/includes/autoload.php';
 
+if (!defined('WP_USE_THEMES')) {
+	define('WP_USE_THEMES', false);
+}
+require_once plugin_dir_path(__FILE__) . '../../../wp-load.php';
+
 /**
  * Classe principale del plugin.
  *
@@ -149,25 +154,8 @@ class Plugin {
 	 * @access private
 	 */
 	private function loadDependencies() {
-		$base_path = plugin_dir_path(__FILE__) . 'includes/';
-
-		// Core
-		require_once $base_path . 'core/class-router.php';
-		require_once $base_path . 'core/class-api-handler.php';
-		require_once $base_path . 'core/class-config-helper.php';
-		require_once $base_path . 'core/class-exceptions.php';
-		require_once $base_path . 'core/class-utilities.php';
-
-		// Services
-		require_once $base_path . 'services/class-product-service.php';
-		require_once $base_path . 'services/class-stock-service.php';
-		require_once $base_path . 'services/class-image-service.php';
-		require_once $base_path . 'services/class-product-status-handler.php';
-		require_once $base_path . 'services/class-product-offers-handler.php';
-
-		// Admin
-		require_once $base_path . 'admin/class-settings.php';
-		require_once $base_path . 'admin/class-settings-helper.php';
+		// AGGIUNGERE QUI LE DIPENDENZE RICHIESTE SE NECESSARIE
+		// SOLO SE NON GESTIGILI TRAMITE AUTOLOAD
 	}
 
 	/**
@@ -194,30 +182,37 @@ class Plugin {
 	private function registerCustomTables() {
 		global $wpdb;
 		$charset_collate = $wpdb->get_charset_collate();
+		$p = $wpdb->prefix;
 
 		$sql = [];
 
 		// Tabella per la storicizzazione dei prodotti
 		$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}isi_api_product` (
-			`post_id` bigint(20) NOT NULL,                    /* ID del post WooCommerce */
-			`variation_id` bigint(20) NOT NULL DEFAULT 0,     /* ID della variazione WooCommerce */
-			`sku` varchar(64) NOT NULL,                       /* SKU del prodotto */
-			`is_variable` tinyint(1) NOT NULL DEFAULT 0,      /* Indica se è un prodotto variabile */
-			`discount_group` varchar(32) DEFAULT NULL,        /* Gruppo sconto */
-			`product_group` varchar(32) DEFAULT NULL,         /* Gruppo merceologico */
-			`product_subgroup` varchar(32) DEFAULT NULL,      /* Sottogruppo merceologico */
-			`brand` varchar(32) DEFAULT NULL,                 /* Marca */
-			`season` varchar(32) DEFAULT NULL,                /* Stagione */
-			`year` int(11) DEFAULT NULL,                      /* Anno */
-			`unit` varchar(32) DEFAULT NULL,                  /* Unità di misura */
-			`unit_conversion` decimal(15,6) DEFAULT 1.000000, /* Conversione unità */
-			`secondary_unit` varchar(32) DEFAULT NULL,        /* Unità secondaria */
-			`use_secondary_unit` tinyint(1) DEFAULT 0,        /* Usa unità secondaria */
-			`created_at` datetime DEFAULT NULL,               /* Data creazione */
-			`updated_at` datetime DEFAULT NULL,               /* Data aggiornamento */
-			PRIMARY KEY (`post_id`,`variation_id`),
-			KEY `IDX_SKU` (`sku`)
+			`post_id` int(10) NOT NULL,                    		/* ID del post WooCommerce */
+			`variation_id` int(10) NOT NULL DEFAULT 0,     		/* ID della variazione WooCommerce */
+			`sku` char(5) NOT NULL,                       		/* SKU del prodotto */
+			`is_tc` tinyint(1) NOT NULL DEFAULT 0,      	  	/* Indica se è un prodotto a taglie&colori */
+			`fascia_sconto_art` char(3) DEFAULT NULL,    	    /* Gruppo sconto */
+			`gruppo_merc` char(3) DEFAULT NULL,      	 	  	/* Gruppo merceologico */
+			`sottogruppo_merc` char(3) DEFAULT NULL,     		/* Sottogruppo merceologico */
+			`marca` char(32) DEFAULT NULL,                		/* Marca */
+			`stagione` char(32) DEFAULT NULL,                	/* Stagione */
+			`anno` int(4) DEFAULT NULL,                     	/* Anno */
+			`unit` char(2) DEFAULT NULL,                  	/* Unità di misura */
+			`unit_conversion` decimal(15,6) DEFAULT 1.000000, 	/* Conversione unità */
+			`secondary_unit` char(2) DEFAULT NULL,        		/* Unità secondaria */
+			`use_secondary_unit` tinyint(1) DEFAULT 0,        	/* Usa unità secondaria */
+			PRIMARY KEY (`sku`)
 		) $charset_collate;";
+
+		$sql[] =
+			'ALTER TABLE `' .
+			$p .
+			'isi_api_product` ADD INDEX idx_isi_api_product_1 (`post_id`) USING BTREE;';
+		$sql[] =
+			'ALTER TABLE `' .
+			$p .
+			'isi_api_product` ADD UNIQUE INDEX idx_isi_api_product_2 (`post_id`, `variation_id`) USING BTREE;';
 
 		// Tabella per lo storico dello stock
 		$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}isi_api_stock` (

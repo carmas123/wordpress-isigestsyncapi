@@ -227,3 +227,31 @@ class ISIGestSyncApiNotFoundException extends ISIGestSyncApiException {
 		parent::__construct($message, $code, $previous);
 	}
 }
+
+class ISIGestSyncApiDbException extends ISIGestSyncApiException {
+	/**
+	 * @var string|null $sql SQL query string that caused the exception
+	 */
+	public $sql;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param string|null $message The Exception message to throw.
+	 * @param string|null $sql The SQL query string that caused the exception.
+	 */
+	public function __construct($message, $sql) {
+		// Controllo del tipo per assicurare che $sql sia una stringa o null
+		if (!is_null($sql) && !is_string($sql)) {
+			throw new \InvalidArgumentException(
+				sprintf(
+					'Il parametro $sql deve essere di tipo stringa o null, %s ricevuto.',
+					gettype($sql),
+				),
+			);
+		}
+
+		$this->sql = $sql;
+		parent::__construct($message);
+	}
+}
