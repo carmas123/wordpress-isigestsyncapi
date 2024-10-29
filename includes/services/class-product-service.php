@@ -39,10 +39,20 @@ class ProductService extends BaseService {
 	private $offers_handler;
 
 	/**
+	 * Prezzi IVA inclusa
+	 *
+	 * @var bool $prices_with_tax Se i prezzi devono essere inclusi IVA.
+	 */
+	private $prices_with_tax = true;
+
+	/**
 	 * Costruttore.
 	 */
 	public function __construct() {
 		parent::__construct();
+
+		// Prezzi IVA inclusa
+		$this->prices_with_tax = ConfigHelper::getPricesWithTax();
 
 		$this->status_handler = new ProductStatusHandler();
 		$this->offers_handler = new ProductOffersHandler();
@@ -58,11 +68,15 @@ class ProductService extends BaseService {
 	public function createOrUpdate($data) {
 		global $wpdb;
 
+		DbHelper::startTransaction();
 		try {
-			DbHelper::startTransaction();
+			$isigest = $data['isigest'] ?? null;
+			if (!$isigest) {
+				throw new ISIGestSyncApiBadRequestException('Dati ISIGest non trovati');
+			}
 
 			// Verifica se il prodotto è a Taglie&Colori
-			$is_tc = (bool) $data['isigest']['is_tc'];
+			$is_tc = (bool) $isigest['is_tc'];
 			if ($is_tc && !$this->config->get('TC_ENABLED')) {
 				throw new ISIGestSyncApiException(
 					'Prodotto a Taglie&Colori non sincronizzabile: configurazione non abilitata',
@@ -99,7 +113,7 @@ class ProductService extends BaseService {
 			$product->save();
 
 			// Storicizziamo il prodotto
-			$this->historyProduct($product->get_id(), 0, $data['isigest']);
+			$this->historyProduct($product->get_id(), 0, $isigest);
 
 			// Aggiorniamo lo stock se non è un prodotto con varianti
 			if (!$product->is_type('variable')) {
@@ -166,6 +180,21 @@ class ProductService extends BaseService {
 		return $data;
 	}
 
+	private function getCanImportDescriptionShort() {
+		$type = (int) $this->config->get('products_short_description');
+		return $type !== 2;
+	}
+
+	private function getCanImportDescription() {
+		$type = (int) $this->config->get('products_description');
+		return $type !== 2;
+	}
+
+	private function getCanImportName() {
+		$type = (int) $this->config->get('products_name');
+		return $type !== 2;
+	}
+
 	/**
 	 * Aggiorna i dati base di un prodotto.
 	 *
@@ -175,32 +204,36 @@ class ProductService extends BaseService {
 	 */
 	private function updateBasicProductData($product, $data) {
 		// Dati base
-		$product->set_name(Utilities::cleanProductName($data['name']));
-		$product->set_status(isset($data['active']) && $data['active'] ? 'publish' : 'draft');
 		$product->set_sku($data['sku']);
 
-		// Descrizioni
-		if (!$this->config->get('PRODUCTS_DONT_SYNC_DESCRIPTIONS')) {
-			if (isset($data['description'])) {
-				$product->set_description($data['description']);
-			}
-			if (isset($data['description_short'])) {
-				$product->set_short_description($data['description_short']);
-			}
+		// Nome
+		if ($this->getCanImportName() || empty($product->get_name())) {
+			$product->set_name($this->extractName($data));
 		}
 
-		// Prezzo
-		if (!$this->config->get('products_dont_sync_prices')) {
-			if (isset($data['price'])) {
-				$product->set_regular_price($data['price']);
-			}
-			if (isset($data['sale_price'])) {
-				$product->set_sale_price($data['sale_price']);
-			}
+		// Descrizioni
+		if (isset($data['description']) && $this->getCanImportDescription()) {
+			$product->set_description($this->convertDescription($data['description']));
+		}
+		if (isset($data['description_short']) && $this->getCanImportDescriptionShort()) {
+			$product->set_short_description(
+				$this->convertDescriptionShort($data['description_short']),
+			);
+		}
+
+		$product->set_status(isset($data['active']) && $data['active'] ? 'publish' : 'draft');
+
+		// Prezzo solo per i prodotti semplici
+		if (
+			!$this->config->get('products_dont_sync_prices') &&
+			!$product instanceof \WC_Product_Variable
+		) {
+			$product->set_regular_price($this->extractRegularPrice($data));
+			$product->set_sale_price($this->extractPrice($data));
 		}
 
 		// Dimensioni e peso
-		if (!$this->config->get('PRODUCTS_DONT_SYNC_DIMENSION_AND_WEIGHT')) {
+		if (!$this->config->get('products_dont_sync_dimension_and_weight')) {
 			if (isset($data['weight'])) {
 				$product->set_weight($data['weight']);
 			}
@@ -214,6 +247,11 @@ class ProductService extends BaseService {
 				$product->set_length($data['depth']);
 			}
 		}
+
+		// Salviamo il prodotto (IMPORTANTE)
+		// Se non salviamo qui non verrà assegnato l'ID del prodotto e quindi in caso di prodotti nuovi
+		// i dati successivi non verranno assegnati correttamente
+		$product->save();
 
 		// Marca (Brand)
 		if (isset($data['brand']) && isset($data['brand']['name'])) {
@@ -230,9 +268,64 @@ class ProductService extends BaseService {
 		}
 
 		// Categorie
-		if (!$this->config->get('PRODUCTS_DONT_SYNC_CATEGORIES') && isset($data['categories'])) {
+		if (
+			!$this->config->get('products_dont_sync_categories', false) &&
+			isset($data['categories'])
+		) {
 			$this->updateProductCategories($product, $data['categories']);
 		}
+	}
+
+	private function extractName($body) {
+		$type = (int) $this->config->get('products_name');
+		$value = $body['name'] ?? '';
+		switch ($type) {
+			case 1:
+				$value = $body['tags'] ?? '';
+				break;
+			case 2:
+				$value = $body['description_short'] ?? '';
+				break;
+		}
+
+		// Se il valore è vuoto allora impostiamo sempre il campo "name"
+		$value = Utilities::ifBlank($value, $body['name'] ?? '');
+		return Utilities::cleanProductName(strip_tags($value));
+	}
+
+	private function convertDescriptionShort($value) {
+		$type = (int) $this->config->get('products_short_description');
+		switch ($type) {
+			case 0:
+				return $value; // Escape HTML
+			case 1:
+				return strip_tags($value); // Remove HTML tags
+		}
+		return $value;
+	}
+
+	private function convertDescription($value) {
+		$type = (int) $this->config->get('products_description');
+		switch ($type) {
+			case 0:
+				return $value; // Escape HTML
+			case 1:
+				return strip_tags($value); // Remove HTML tags
+		}
+		return $value;
+	}
+
+	private function extractPrice($body) {
+		return (float) $body[$this->prices_with_tax ? 'price_wt' : 'price'];
+	}
+
+	private function extractRegularPrice($body) {
+		$p = $this->extractPrice($body);
+		$rp = (float) $body[$this->prices_with_tax ? 'sale_price_wt' : 'sale_price'];
+		if ($rp > $p) {
+			return $rp;
+		}
+		return $p;
 	}
 
 	/**
@@ -289,22 +382,31 @@ class ProductService extends BaseService {
 	/**
 	 * Storicizza un prodotto.
 	 *
-	 * @param integer $id_product           ID del prodotto.
+	 * @param integer $post_id           ID del prodotto.
 	 * @param integer $id_product_attribute ID dell'attributo prodotto.
 	 * @param array   $data                 Dati da storicizzare.
 	 * @return void
 	 */
-	private function historyProduct($id_product, $id_product_attribute, $data) {
+	private function historyProduct($post_id, $variation_id, $data) {
 		global $wpdb;
 
 		if (empty($data)) {
-			$wpdb->delete($wpdb->prefix . 'isi_api_product', ['id_product' => $id_product], ['%d']);
+			if (empty($id_product_attribute)) {
+				$wpdb->delete($wpdb->prefix . 'isi_api_product', ['post_id' => $post_id], ['%d']);
+			} else {
+				$wpdb->delete(
+					$wpdb->prefix . 'isi_api_product',
+					['post_id' => $post_id, 'variation_id' => $variation_id],
+					['%d', '%d'],
+				);
+			}
+
 			return;
 		}
 
 		$wpdb->replace($wpdb->prefix . 'isi_api_product', [
-			'post_id' => $id_product,
-			'variation_id' => $id_product_attribute,
+			'post_id' => $post_id,
+			'variation_id' => $variation_id,
 			'sku' => $data['sku'],
 			'is_tc' => isset($data['is_tc']) ? (int) $data['is_tc'] : 0,
 			'unit' => isset($data['unity']) ? $data['unity'] : null,
@@ -405,17 +507,9 @@ class ProductService extends BaseService {
 		// Prima cerca tra i prodotti normali
 		$product_id = wc_get_product_id_by_sku($sku);
 
-		// Se non trova nulla, cerca tra le variazioni
+		// Se non trova nulla, cerca tra le varianti
 		if ($include_variants && !$product_id) {
-			global $wpdb;
-			$product_id = $wpdb->get_var(
-				$wpdb->prepare(
-					"
-            SELECT post_id FROM {$wpdb->postmeta}
-            WHERE meta_key='_sku' AND meta_value=%s LIMIT 1",
-					$sku,
-				),
-			);
+			$product_id = $this->findVariationBySku($sku);
 		}
 
 		return $product_id;
@@ -458,7 +552,7 @@ class ProductService extends BaseService {
 			$current = $current->parent ? get_term($current->parent, 'product_cat') : null;
 		}
 
-		return implode(' > ', array_reverse($path));
+		return implode('>', array_reverse($path));
 	}
 
 	/**
@@ -661,29 +755,22 @@ class ProductService extends BaseService {
 	/**
 	 * Trova una variazione tramite SKU
 	 *
-	 * @param int    $product_id ID del prodotto
 	 * @param string $sku        SKU da cercare
 	 * @return int|null
 	 */
-	private function findVariationBySku($product_id, $sku) {
+	private function findVariationBySku($sku) {
 		global $wpdb;
 
-		return $wpdb->get_var(
+		$product_id = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT post_id 
-        FROM {$wpdb->postmeta} 
-        WHERE meta_key = '_sku' 
-        AND meta_value = %s 
-        AND post_id IN (
-            SELECT ID 
-            FROM {$wpdb->posts} 
-            WHERE post_parent = %d 
-            AND post_type = 'product_variation'
-        )",
+				"
+            SELECT post_id FROM {$wpdb->postmeta}
+            WHERE meta_key='_sku' AND meta_value=%s LIMIT 1",
 				$sku,
-				$product_id,
 			),
 		);
+
+		return $product_id ? (int) $product_id : null;
 	}
 
 	/**
@@ -801,75 +888,6 @@ class ProductService extends BaseService {
 		return null;
 	}
 
-	private function updateVariationMeta($variation, $variation_data) {
-		// Impostiamo lo SKU
-		$variation->set_sku($variation_data['sku']);
-
-		// Impostiamo i prezzi
-		if (!$this->config->get('products_dont_sync_prices')) {
-			$variation->set_regular_price($variation_data['regular_price']);
-			$variation->set_sale_price($variation_data['sale_price']);
-
-			// Aggiorniamo anche i meta diretti per sicurezza
-			update_post_meta(
-				$variation->get_id(),
-				'_regular_price',
-				$variation_data['regular_price'],
-			);
-			update_post_meta($variation->get_id(), '_sale_price', $variation_data['sale_price']);
-			update_post_meta(
-				$variation->get_id(),
-				'_price',
-				$variation_data['sale_price'] ?: $variation_data['regular_price'],
-			);
-		}
-
-		// Impostiamo lo stock
-		if (!$this->config->get('products_dont_sync_stocks')) {
-			$variation->set_manage_stock(true);
-			$variation->set_stock_quantity((int) $variation_data[ConfigHelper::getQuantityField()]);
-			update_post_meta($variation->get_id(), '_manage_stock', 'yes');
-			update_post_meta(
-				$variation->get_id(),
-				'_stock',
-				(int) $variation_data[ConfigHelper::getQuantityField()],
-			);
-			update_post_meta(
-				$variation->get_id(),
-				'_stock_status',
-				(int) $variation_data[ConfigHelper::getQuantityField()] > 0
-					? 'instock'
-					: 'outofstock',
-			);
-		}
-
-		// Impostiamo le dimensioni
-		if (!$this->config->get('PRODUCTS_DONT_SYNC_DIMENSION_AND_WEIGHT')) {
-			$variation->set_width($variation_data['dimensions']['width']);
-			$variation->set_height($variation_data['dimensions']['height']);
-			$variation->set_length($variation_data['dimensions']['length']);
-			$variation->set_weight($variation_data['dimensions']['weight']);
-		}
-
-		// Impostiamo gli attributi
-		foreach ($variation_data['attributes'] as $taxonomy => $term_slug) {
-			$meta_key = 'attribute_' . sanitize_title($taxonomy);
-			update_post_meta($variation->get_id(), $meta_key, $term_slug);
-		}
-
-		// Impostiamo il post_excerpt vuoto (richiesto da WooCommerce)
-		wp_update_post([
-			'ID' => $variation->get_id(),
-			'post_excerpt' => '',
-		]);
-
-		// Meta addizionali richiesti da WooCommerce
-		update_post_meta($variation->get_id(), '_variation_description', '');
-		update_post_meta($variation->get_id(), '_downloadable', 'no');
-		update_post_meta($variation->get_id(), '_virtual', 'no');
-		update_post_meta($variation->get_id(), '_featured', 'no');
-	}
-
 	private function updateProductAttributes($product, $attributes) {
 		$product_attributes = [];
 
@@ -946,10 +964,15 @@ class ProductService extends BaseService {
 		$attributes = [];
 		$variations = [];
 
+		$isigest = $data['isigest'] ?? null;
+		if (!$isigest) {
+			throw new ISIGestSyncApiBadRequestException('Dati ISIGest non trovati');
+		}
+
 		// Raccogliamo tutti i valori degli attributi
 		foreach ($data['attributes'] as $variant) {
 			// Gestione attributi standard o taglie/colori
-			if ($this->config->get('TC_ENABLED') && $data['isigest']['is_tc']) {
+			if ((bool) $isigest['is_tc']) {
 				if (!empty($variant['size_name'])) {
 					$attributes['taglia'][] = $variant['size_name'];
 				}
@@ -982,7 +1005,7 @@ class ProductService extends BaseService {
 		$product->save();
 
 		// Creiamo o aggiorniamo le variazioni
-		$this->updateProductVariations($product, $variations, $data['isigest']);
+		$this->updateProductVariations($product, $variations, $isigest);
 	}
 
 	private function updateProductVariations($product, $variations, $isigest) {
@@ -990,14 +1013,18 @@ class ProductService extends BaseService {
 		$processed_variations = [];
 
 		foreach ($variations as $variant) {
-			$variation_id = $this->findVariationBySku($product->get_id(), $variant['sku']);
+			$sku = $variant['sku'];
+
+			$variation_id = $this->findProductBySku($sku) ?? $this->findVariationBySku($sku);
 
 			if ($variation_id) {
 				$variation = wc_get_product($variation_id);
 			} else {
 				$variation = new \WC_Product_Variation();
-				$variation->set_parent_id($product->get_id());
 			}
+
+			// Impostiamo il parent
+			$variation->set_parent_id($product->get_id());
 
 			$this->updateVariationData($variation, $variant);
 
@@ -1009,7 +1036,7 @@ class ProductService extends BaseService {
 			$this->historyProduct(
 				$product->get_id(),
 				$variation->get_id(),
-				array_merge(['sku' => $variant['sku']], $isigest),
+				array_merge($isigest, ['sku' => $sku]),
 			);
 		}
 
@@ -1022,6 +1049,9 @@ class ProductService extends BaseService {
 				}
 			}
 		}
+
+		// Aggiorniamo la variante di default
+		$this->updateDefaultVariant($product->get_id());
 	}
 
 	private function updateVariationData($variation, $data) {
@@ -1030,8 +1060,8 @@ class ProductService extends BaseService {
 
 		// Imposta prezzi
 		if (!$this->config->get('products_dont_sync_prices')) {
-			$variation->set_regular_price($data['price'] ?? 0);
-			$variation->set_sale_price($data['sale_price'] ?? 0);
+			$variation->set_regular_price($this->extractRegularPrice($data));
+			$variation->set_sale_price($this->extractPrice($data));
 		}
 
 		// Imposta stock
@@ -1092,12 +1122,12 @@ class ProductService extends BaseService {
 		}
 
 		// Verifica se la tassonomia del brand esiste
-		$taxonomy = 'product_brand';
+		$taxonomy = ConfigHelper::getBrandMetaKey();
 		if (!taxonomy_exists($taxonomy)) {
 			// Registra la tassonomia se non esiste
 			register_taxonomy($taxonomy, 'product', [
 				'hierarchical' => false,
-				'label' => 'Marche',
+				'label' => 'Marca',
 				'show_ui' => true,
 				'query_var' => true,
 				'rewrite' => ['slug' => 'marca'],
@@ -1135,10 +1165,93 @@ class ProductService extends BaseService {
 	 * @return string|null
 	 */
 	private function getProductBrand($product) {
-		$terms = get_the_terms($product->get_id(), 'product_brand');
+		$terms = get_the_terms($product->get_id(), ConfigHelper::getBrandMetaKey());
 		if (!empty($terms) && !is_wp_error($terms)) {
 			return $terms[0]->name;
 		}
+		return null;
+	}
+
+	function updateDefaultVariant($product_id) {
+		$product = wc_get_product($product_id);
+
+		// Verifica che sia un prodotto variabile
+		if ($product && $product->is_type('variable')) {
+			$available_variations = $product->get_available_variations();
+
+			if (!empty($available_variations)) {
+				$lowest_price = PHP_FLOAT_MAX;
+				$lowest_price_variation = null;
+
+				foreach ($available_variations as $variation) {
+					// Controlla se la variante è acquistabile
+					if (!$variation['is_purchasable'] || !$variation['is_in_stock']) {
+						continue;
+					}
+
+					$price = !empty($variation['display_price'])
+						? $variation['display_price']
+						: (!empty($variation['display_regular_price'])
+							? $variation['display_regular_price']
+							: PHP_FLOAT_MAX);
+
+					if ($price < $lowest_price) {
+						$lowest_price = $price;
+						$lowest_price_variation = $variation;
+					}
+				}
+
+				if ($lowest_price_variation) {
+					// Imposta gli attributi predefiniti
+					$default_attributes = [];
+					foreach (
+						$lowest_price_variation['attributes']
+						as $attribute_name => $attribute_value
+					) {
+						$taxonomy = str_replace('attribute_', '', $attribute_name);
+						$default_attributes[$taxonomy] = $attribute_value;
+					}
+
+					// Aggiorna gli attributi predefiniti del prodotto
+					update_post_meta($product_id, '_default_attributes', $default_attributes);
+
+					// Gestione immagine
+					$variation_obj = wc_get_product($lowest_price_variation['variation_id']);
+					if ($variation_obj) {
+						$image_id = $variation_obj->get_image_id();
+
+						// Se la variante ha un'immagine, impostala come principale
+						if ($image_id) {
+							// Salva l'immagine principale corrente come meta se non è già una variante
+							$current_image_id = get_post_thumbnail_id($product_id);
+							if ($current_image_id && $current_image_id != $image_id) {
+								update_post_meta(
+									$product_id,
+									'_original_thumbnail_id',
+									$current_image_id,
+								);
+							}
+
+							// Imposta la nuova immagine principale
+							set_post_thumbnail($product_id, $image_id);
+						} else {
+							// Cerca la prima variante con un'immagine
+							foreach ($available_variations as $variation) {
+								$var_obj = wc_get_product($variation['variation_id']);
+								if ($var_obj && $var_obj->get_image_id()) {
+									$image_id = $var_obj->get_image_id();
+									set_post_thumbnail($product_id, $image_id);
+									break;
+								}
+							}
+						}
+					}
+
+					return $lowest_price_variation['variation_id'];
+				}
+			}
+		}
+
 		return null;
 	}
 }

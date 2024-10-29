@@ -12,365 +12,246 @@ namespace ISIGestSyncAPI\Admin;
 
 use ISIGestSyncAPI\Core\ConfigHelper;
 
-/**
- * Classe SettingsHelper per la gestione del rendering delle impostazioni.
- *
- * @since 1.0.0
- */
 class SettingsHelper {
-	/**
-	 * Configurazione del plugin.
-	 *
-	 * @var ConfigHelper
-	 */
 	private $config;
+	private $form_structure;
 
-	/**
-	 * Costruttore.
-	 */
 	public function __construct() {
 		$this->config = ConfigHelper::getInstance();
 	}
 
 	/**
-	 * Renderizza un campo del form.
+	 * Renderizza l'intero form delle impostazioni
 	 *
-	 * @param array $args Argomenti del campo.
-	 * @return void
+	 * @param array $form_structure La struttura completa del form
 	 */
-	public function renderField($args) {
-		$defaults = [
+	public function renderForm($form_structure) {
+		$fs = $form_structure['form'];
+		$this->form_structure = $fs;
+
+		$active_tab = isset($_GET['tab'])
+			? sanitize_key($_GET['tab'])
+			: array_key_first($fs['tabs']);
+		?>
+        <div class="wrap">
+            <h1><?php echo esc_html($fs['legend']['title']); ?></h1>
+            
+            <?php $this->renderTabs($active_tab); ?>
+
+            <form method="post" action="options.php">
+                <?php
+                settings_fields('isigestsyncapi_options');
+                $this->renderTabContent($active_tab);
+                submit_button($fs['submit']['title']);?>
+            </form>
+        </div>
+        <?php
+	}
+
+	/**
+	 * Renderizza i tabs
+	 */
+	private function renderTabs($active_tab) {
+		echo '<h2 class="nav-tab-wrapper woo-nav-tab-wrapper">';
+		foreach ($this->form_structure['tabs'] as $tab_id => $tab_label) {
+			$url = add_query_arg(
+				[
+					'page' => 'isigestsyncapi-settings',
+					'tab' => $tab_id,
+				],
+				admin_url('admin.php'),
+			);
+
+			$active = $active_tab === $tab_id ? ' nav-tab-active' : '';
+			printf(
+				'<a href="%s" class="nav-tab%s">%s</a>',
+				esc_url($url),
+				esc_attr($active),
+				esc_html($tab_label),
+			);
+		}
+		echo '</h2>';
+	}
+
+	/**
+	 * Renderizza il contenuto del tab attivo
+	 */
+	private function renderTabContent($active_tab) {
+		// Raggruppa i campi per sezione all'interno del tab attivo
+		$sections = [];
+		foreach ($this->form_structure['input'] as $field) {
+			if ($field['tab'] === $active_tab) {
+				$section = $field['section'] ?? 'default';
+				$sections[$section][] = $field;
+			}
+		}
+
+		// Renderizza ogni sezione
+		foreach ($sections as $section_name => $fields) {
+			echo '<div class="isi-settings-group">';
+			if ($section_name !== 'default') {
+				echo '<h3>' . esc_html($section_name) . '</h3>';
+			}
+
+			echo '<table class="form-table" role="presentation">';
+			foreach ($fields as $field) {
+				$this->renderField($field);
+			}
+			echo '</table>';
+			echo '</div>';
+		}
+	}
+
+	/**
+	 * Renderizza un singolo campo
+	 */
+	private function renderField($field) {
+		$field = wp_parse_args($field, [
 			'type' => 'text',
 			'name' => '',
 			'label' => '',
 			'description' => '',
-			'placeholder' => '',
 			'class' => '',
-			'value' => '',
+			'value' => $this->config->get($field['name'], ''),
 			'options' => [],
 			'readonly' => false,
 			'disabled' => false,
-			'required' => false,
-			'data' => [],
-			'multiple' => false,
-		];
+		]);
 
-		$args = wp_parse_args($args, $defaults);
-		$name = 'isigestsyncapi_settings[' . $args['name'] . ']';
-		$id = 'isigestsyncapi_' . $args['name'];
-
-		// Calcoliamo il calore in base al nome
-		$args['value'] = $this->config->get($args['name'], $args['value']);
-
-		switch ($args['type']) {
-			case 'text':
-			case 'password':
-			case 'number':
-			case 'email':
-			case 'url':
-				$this->renderInputField($name, $id, $args);
-				break;
-
-			case 'textarea':
-				$this->renderTextarea($name, $id, $args);
-				break;
-
+		switch ($field['type']) {
 			case 'checkbox':
-				$this->renderCheckbox($name, $id, $args);
+				$this->renderCheckboxField($field);
 				break;
-
-			case 'radio':
-				$this->renderRadio($name, $id, $args);
-				break;
-
 			case 'select':
-				$this->renderSelect($name, $id, $args);
+				$this->renderSelectField($field);
 				break;
-
-			case 'button':
-				$this->renderButton($name, $id, $args);
+			case 'textarea':
+				$this->renderTextareaField($field);
 				break;
-
-			case 'color':
-				$this->renderColorPicker($name, $id, $args);
-				break;
-
-			case 'file':
-				$this->renderFileUpload($name, $id, $args);
+			default:
+				$this->renderDefaultField($field);
 				break;
 		}
 	}
 
 	/**
-	 * Renderizza un campo input.
-	 *
-	 * @param string $name Nome del campo.
-	 * @param string $id   ID del campo.
-	 * @param array  $args Argomenti del campo.
-	 * @return void
+	 * Renderizza un campo checkbox
 	 */
-	private function renderInputField($name, $id, $args) {
+	private function renderCheckboxField($field) {
 		?>
-		<input 
-			type="<?php echo esc_attr($args['type']); ?>"
-			id="<?php echo esc_attr($id); ?>"
-			name="<?php echo esc_attr($name); ?>"
-			value="<?php echo esc_attr($args['value']); ?>"
-			class="regular-text <?php echo esc_attr($args['class']); ?>"
-			<?php echo $args['placeholder'] ? 'placeholder="' . esc_attr($args['placeholder']) . '"' : ''; ?>
-			<?php echo $args['readonly'] ? 'readonly' : ''; ?>
-			<?php echo $args['disabled'] ? 'disabled' : ''; ?>
-			<?php echo $args['required'] ? 'required' : ''; ?>
-			<?php $this->renderDataAttributes($args['data']); ?>
-		>
-		<?php if ($args['description']) {
-  	echo '<p class="description">' . esc_html($args['description']) . '</p>';
-  }
+        <tr>
+            <th scope="row" colspan="2">
+                <label>
+                    <input type="hidden" name="isigestsyncapi_settings[<?php echo esc_attr(
+                    	$field['name'],
+                    ); ?>]" value="0">
+                    <input 
+                        type="checkbox"
+                        name="isigestsyncapi_settings[<?php echo esc_attr($field['name']); ?>]"
+                        value="1"
+                        <?php checked($field['value'], true); ?>
+                        <?php echo $field['readonly'] ? 'readonly' : ''; ?>
+                        <?php echo $field['disabled'] ? 'disabled' : ''; ?>
+                    >
+                    <?php echo esc_html($field['label']); ?>
+                </label>
+                <?php if (!empty($field['description'])): ?>
+                    <p class="description"><?php echo esc_html($field['description']); ?></p>
+                <?php endif; ?>
+            </th>
+        </tr>
+        <?php
 	}
 
 	/**
-	 * Renderizza un campo textarea.
-	 *
-	 * @param string $name Nome del campo.
-	 * @param string $id   ID del campo.
-	 * @param array  $args Argomenti del campo.
-	 * @return void
+	 * Renderizza un campo select
 	 */
-	private function renderTextarea($name, $id, $args) {
+	private function renderSelectField($field) {
 		?>
-		<textarea
-			id="<?php echo esc_attr($id); ?>"
-			name="<?php echo esc_attr($name); ?>"
-			class="large-text code <?php echo esc_attr($args['class']); ?>"
-			rows="10"
-			<?php echo $args['readonly'] ? 'readonly' : ''; ?>
-			<?php echo $args['disabled'] ? 'disabled' : ''; ?>
-			<?php echo $args['required'] ? 'required' : ''; ?>
-			<?php $this->renderDataAttributes($args['data']); ?>
-		><?php echo esc_textarea($args['value']); ?></textarea>
-		<?php if ($args['description']) {
-  	echo '<p class="description">' . esc_html($args['description']) . '</p>';
-  }
+        <tr>
+            <th scope="row">
+                <label for="<?php echo esc_attr(
+                	$field['name'],
+                ); ?>"><?php echo esc_html($field['label']); ?></label>
+            </th>
+            <td>
+                <select 
+                    name="isigestsyncapi_settings[<?php echo esc_attr($field['name']); ?>]"
+                    id="<?php echo esc_attr($field['name']); ?>"
+                    <?php echo $field['readonly'] ? 'readonly' : ''; ?>
+                    <?php echo $field['disabled'] ? 'disabled' : ''; ?>
+                >
+                    <?php foreach ($field['options'] as $value => $label): ?>
+                        <option value="<?php echo esc_attr($value); ?>" <?php selected(
+	$field['value'],
+	$value,
+); ?>>
+                            <?php echo esc_html($label); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <?php if (!empty($field['description'])): ?>
+                    <p class="description"><?php echo esc_html($field['description']); ?></p>
+                <?php endif; ?>
+            </td>
+        </tr>
+        <?php
 	}
 
 	/**
-	 * Renderizza un campo checkbox.
-	 *
-	 * @param string $name Nome del campo.
-	 * @param string $id   ID del campo.
-	 * @param array  $args Argomenti del campo.
-	 * @return void
+	 * Renderizza un campo textarea
 	 */
-	private function renderCheckbox($name, $id, $args) {
+	private function renderTextareaField($field) {
 		?>
-    <label for="<?php echo esc_attr($id); ?>">
-        <input type="hidden" name="<?php echo esc_attr($name); ?>" value="0">
-        <input 
-            type="checkbox"
-            id="<?php echo esc_attr($id); ?>"
-            name="<?php echo esc_attr($name); ?>"
-            value="1"
-            <?php checked($args['value'], true); ?>
-            class="<?php echo esc_attr($args['class']); ?>"
-            <?php echo $args['disabled'] ? 'disabled' : ''; ?>
-            <?php $this->renderDataAttributes($args['data']); ?>
-        >
-        <?php echo esc_html($args['label']); ?>
-    </label>
-    <?php if ($args['description']) {
-    	echo '<p class="description">' . esc_html($args['description']) . '</p>';
-    }
+        <tr>
+            <th scope="row">
+                <label for="<?php echo esc_attr(
+                	$field['name'],
+                ); ?>"><?php echo esc_html($field['label']); ?></label>
+            </th>
+            <td>
+                <textarea
+                    name="isigestsyncapi_settings[<?php echo esc_attr($field['name']); ?>]"
+                    id="<?php echo esc_attr($field['name']); ?>"
+                    class="large-text code"
+                    rows="10"
+                    <?php echo $field['readonly'] ? 'readonly' : ''; ?>
+                    <?php echo $field['disabled'] ? 'disabled' : ''; ?>
+                ><?php echo esc_textarea($field['value']); ?></textarea>
+                <?php if (!empty($field['description'])): ?>
+                    <p class="description"><?php echo esc_html($field['description']); ?></p>
+                <?php endif; ?>
+            </td>
+        </tr>
+        <?php
 	}
 
 	/**
-	 * Renderizza un campo radio.
-	 *
-	 * @param string $name Nome del campo.
-	 * @param string $id   ID del campo.
-	 * @param array  $args Argomenti del campo.
-	 * @return void
+	 * Renderizza un campo di input standard
 	 */
-	private function renderRadio($name, $id, $args) {
+	private function renderDefaultField($field) {
 		?>
-	<fieldset>
-		<?php foreach ($args['options'] as $key => $label): ?>
-			<label for="<?php echo esc_attr($id . '_' . $key); ?>">
-				<input 
-					type="radio"
-					id="<?php echo esc_attr($id . '_' . $key); ?>"
-					name="<?php echo esc_attr($name); ?>"
-					value="<?php echo esc_attr($key); ?>"
-					<?php checked($args['value'], $key); ?>
-					class="<?php echo esc_attr($args['class']); ?>"
-					<?php echo $args['disabled'] ? 'disabled' : ''; ?>
-					<?php echo $args['required'] ? 'required' : ''; ?>
-					<?php $this->renderDataAttributes($args['data']); ?>
-				>
-				<?php echo esc_html($label); ?>
-			</label><br>
-		<?php endforeach; ?>
-	</fieldset>
-	<?php if ($args['description']) {
- 	echo '<p class="description">' . esc_html($args['description']) . '</p>';
- }
-	}
-
-	/**
-	 * Renderizza un campo select.
-	 *
-	 * @param string $name Nome del campo.
-	 * @param string $id   ID del campo.
-	 * @param array  $args Argomenti del campo.
-	 * @return void
-	 */
-	private function renderSelect($name, $id, $args) {
-		?>
-		<select
-			id="<?php echo esc_attr($id); ?>"
-			name="<?php
-   echo esc_attr($name);
-   echo $args['multiple'] ? '[]' : '';
-   ?>"
-			class="<?php echo esc_attr($args['class']); ?>"
-			<?php echo $args['multiple'] ? 'multiple' : ''; ?>
-			<?php echo $args['disabled'] ? 'disabled' : ''; ?>
-			<?php echo $args['required'] ? 'required' : ''; ?>
-			<?php $this->renderDataAttributes($args['data']); ?>
-		>
-			<?php foreach ($args['options'] as $key => $label): ?>
-				<option 
-					value="<?php echo esc_attr($key); ?>"
-					<?php selected($args['value'], $key); ?>
-				>
-					<?php echo esc_html($label); ?>
-				</option>
-			<?php endforeach; ?>
-		</select>
-		<?php if ($args['description']) {
-  	echo '<p class="description">' . esc_html($args['description']) . '</p>';
-  }
-	}
-
-	/**
-	 * Renderizza un bottone.
-	 *
-	 * @param string $name Nome del campo.
-	 * @param string $id   ID del campo.
-	 * @param array  $args Argomenti del campo.
-	 * @return void
-	 */
-	private function renderButton($name, $id, $args) {
-		?>
-		<button
-			type="button"
-			id="<?php echo esc_attr($id); ?>"
-			name="<?php echo esc_attr($name); ?>"
-			class="button <?php echo esc_attr($args['class']); ?>"
-			<?php echo $args['disabled'] ? 'disabled' : ''; ?>
-			<?php $this->renderDataAttributes($args['data']); ?>
-		>
-			<?php echo esc_html($args['label']); ?>
-		</button>
-		<?php if ($args['description']) {
-  	echo '<p class="description">' . esc_html($args['description']) . '</p>';
-  }
-	}
-
-	/**
-	 * Renderizza un color picker.
-	 *
-	 * @param string $name Nome del campo.
-	 * @param string $id   ID del campo.
-	 * @param array  $args Argomenti del campo.
-	 * @return void
-	 */
-	private function renderColorPicker($name, $id, $args) {
-		wp_enqueue_style('wp-color-picker');
-		wp_enqueue_script('wp-color-picker');
-		?>
-		<input 
-			type="text"
-			id="<?php echo esc_attr($id); ?>"
-			name="<?php echo esc_attr($name); ?>"
-			value="<?php echo esc_attr($args['value']); ?>"
-			class="color-picker <?php echo esc_attr($args['class']); ?>"
-			<?php echo $args['readonly'] ? 'readonly' : ''; ?>
-			<?php echo $args['disabled'] ? 'disabled' : ''; ?>
-			<?php $this->renderDataAttributes($args['data']); ?>
-		>
-		<script>
-			jQuery(document).ready(function($) {
-				$('#<?php echo esc_js($id); ?>').wpColorPicker();
-			});
-		</script>
-		<?php if ($args['description']) {
-  	echo '<p class="description">' . esc_html($args['description']) . '</p>';
-  }
-	}
-
-	/**
-	 * Renderizza un campo per l'upload di file.
-	 *
-	 * @param string $name Nome del campo.
-	 * @param string $id   ID del campo.
-	 * @param array  $args Argomenti del campo.
-	 * @return void
-	 */
-	private function renderFileUpload($name, $id, $args) {
-		wp_enqueue_media(); ?>
-		<div class="file-upload-field">
-			<input 
-				type="text"
-				id="<?php echo esc_attr($id); ?>"
-				name="<?php echo esc_attr($name); ?>"
-				value="<?php echo esc_attr($args['value']); ?>"
-				class="regular-text <?php echo esc_attr($args['class']); ?>"
-				<?php echo $args['readonly'] ? 'readonly' : ''; ?>
-				<?php echo $args['disabled'] ? 'disabled' : ''; ?>
-				<?php $this->renderDataAttributes($args['data']); ?>
-			>
-			<button type="button" class="button file-upload-button">
-				<?php esc_html_e('Upload File', 'isigestsyncapi'); ?>
-			</button>
-		</div>
-		<script>
-			jQuery(document).ready(function($) {
-				$('.file-upload-button').on('click', function(e) {
-					e.preventDefault();
-					var button = $(this);
-					var field = button.siblings('input');
-					
-					var frame = wp.media({
-						title: '<?php esc_html_e('Select File', 'isigestsyncapi'); ?>',
-						button: {
-							text: '<?php esc_html_e('Use File', 'isigestsyncapi'); ?>'
-						},
-						multiple: false
-					});
-
-					frame.on('select', function() {
-						var attachment = frame.state().get('selection').first().toJSON();
-						field.val(attachment.url);
-					});
-
-					frame.open();
-				});
-			});
-		</script>
-		<?php if ($args['description']) {
-  	echo '<p class="description">' . esc_html($args['description']) . '</p>';
-  }
-	}
-
-	/**
-	 * Renderizza gli attributi data.
-	 *
-	 * @param array $data Attributi data.
-	 * @return void
-	 */
-	private function renderDataAttributes($data) {
-		foreach ($data as $key => $value) {
-			echo ' data-' . esc_attr($key) . '="' . esc_attr($value) . '"';
-		}
+        <tr>
+            <th scope="row">
+                <label for="<?php echo esc_attr(
+                	$field['name'],
+                ); ?>"><?php echo esc_html($field['label']); ?></label>
+            </th>
+            <td>
+                <input
+                    type="<?php echo esc_attr($field['type']); ?>"
+                    name="isigestsyncapi_settings[<?php echo esc_attr($field['name']); ?>]"
+                    id="<?php echo esc_attr($field['name']); ?>"
+                    value="<?php echo esc_attr($field['value']); ?>"
+                    class="regular-text"
+                    <?php echo $field['readonly'] ? 'readonly' : ''; ?>
+                    <?php echo $field['disabled'] ? 'disabled' : ''; ?>
+                >
+                <?php if (!empty($field['description'])): ?>
+                    <p class="description"><?php echo esc_html($field['description']); ?></p>
+                <?php endif; ?>
+            </td>
+        </tr>
+        <?php
 	}
 }

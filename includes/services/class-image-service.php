@@ -10,6 +10,7 @@
 
 namespace ISIGestSyncAPI\Services;
 
+use ISIGestSyncAPI\Core\ISIGestSyncApiNotFoundException;
 use ISIGestSyncAPI\Core\Utilities;
 use ISIGestSyncAPI\Core\ISIGestSyncApiException;
 use ISIGestSyncAPI\Core\ISIGestSyncApiBadRequestException;
@@ -21,104 +22,76 @@ use ISIGestSyncAPI\Core\ISIGestSyncApiBadRequestException;
  */
 class ImageService {
 	/**
-	 * Gestisce l'upload di un'immagine per un prodotto.
+	 * Gestisce l'upload di un'immagine per un prodotto o una sua variante.
 	 *
-	 * @param array $data I dati dell'immagine da gestire.
-	 * @return array
-	 * @throws ISIGestSyncApiException Se si verifica un errore durante l'upload.
+	 * @param integer $product_id ID del prodotto.
+	 * @param integer $variation_id ID della variante (opzionale).
+	 * @param string $filename Nome del file.
+	 * @param string $attachment Contenuto dell'immagine in base64.
+	 * @param bool $is_main Immagine principale (Copertina)
+	 * @return array Dati dell'immagine caricata.
+	 * @throws ISIGestSyncApiException Se si verifica un errore nell'upload.
+	 * @throws ISIGestSyncApiBadRequestException Contanuto dei dati non valido.
 	 */
-	public function handleImageUpload($data) {
-		global $wpdb;
-
+	public function handleImageUpload(
+		$product_id,
+		$variation_id,
+		$filename,
+		$attachment,
+		$is_main
+	) {
 		try {
-			// Troviamo il prodotto dallo SKU
-			$product_data = $this->findProductBySku($data['sku']);
-			if (!$product_data) {
-				throw new ISIGestSyncApiBadRequestException('Prodotto non trovato');
+			// Decodifica il contenuto base64
+			$image_data = base64_decode($attachment);
+			if (!$image_data) {
+				throw new ISIGestSyncApiBadRequestException('Contenuto base64 non valido');
 			}
 
-			$product_id = $product_data['id_product'];
-			$variation_id = $product_data['id_product_attribute'];
-
-			// Verifichiamo l'URL dell'immagine
-			if (!Utilities::isValidUrl($data['image_url'])) {
-				throw new ISIGestSyncApiBadRequestException('URL immagine non valido');
+			// Crea file temporaneo
+			$upload_dir = wp_upload_dir();
+			$temp_file = tempnam($upload_dir['basedir'], 'isigestsyncapi');
+			if (!$temp_file) {
+				throw new ISIGestSyncApiException('Impossibile creare il file temporaneo');
 			}
 
-			// Scarichiamo l'immagine
-			$temp_file = $this->downloadImage($data['image_url']);
+			// Salva il contenuto nel file temporaneo
+			if (file_put_contents($temp_file, $image_data) === false) {
+				throw new ISIGestSyncApiException('Impossibile salvare il file temporaneo');
+			}
 
-			// Prepariamo l'array del file
+			// Prepara l'array del file
 			$file_array = [
-				'name' => Utilities::sanitizeFilename(basename($data['image_url'])),
+				'name' => Utilities::sanitizeFilename($filename),
 				'tmp_name' => $temp_file,
+				'type' => mime_content_type($temp_file),
+				'error' => 0,
+				'size' => filesize($temp_file),
 			];
 
-			// Carichiamo il file nella libreria media
+			// Carica il file nella libreria media
 			$attachment_id = $this->uploadToMediaLibrary($file_array, $product_id);
 
-			// Se è una variante, impostiamo l'immagine sulla variante
+			// Gestisci l'associazione dell'immagine
 			if ($variation_id) {
 				$this->setVariationImage($variation_id, $attachment_id);
 			} else {
-				// Altrimenti impostiamo l'immagine sul prodotto principale
-				$this->setProductImage($product_id, $attachment_id, isset($data['is_main']));
+				$this->setProductImage($product_id, $attachment_id, $is_main);
 			}
 
-			return [
-				'success' => true,
-				'message' => 'Immagine aggiornata con successo',
-				'attachment_id' => $attachment_id,
-				'url' => wp_get_attachment_url($attachment_id),
-			];
+			// Pulisci il file temporaneo
+			@unlink($temp_file);
+
+			return ['id' => $attachment_id];
 		} catch (\Exception $e) {
-			// Pulizia in caso di errore
+			// Pulisci il file temporaneo in caso di errore
 			if (isset($temp_file) && file_exists($temp_file)) {
 				@unlink($temp_file);
 			}
+
 			throw new ISIGestSyncApiException(
 				'Errore durante la gestione dell\'immagine: ' . $e->getMessage(),
 			);
 		}
-	}
-
-	/**
-	 * Trova un prodotto tramite SKU.
-	 *
-	 * @param string $sku Lo SKU del prodotto.
-	 * @return array|null
-	 */
-	private function findProductBySku($sku) {
-		global $wpdb;
-
-		return $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT id_product, id_product_attribute 
-				FROM {$wpdb->prefix}isi_api_product 
-				WHERE codice = %s",
-				$sku,
-			),
-			ARRAY_A,
-		);
-	}
-
-	/**
-	 * Scarica un'immagine da un URL.
-	 *
-	 * @param string $url L'URL dell'immagine.
-	 * @return string Il percorso del file temporaneo.
-	 * @throws ISIGestSyncApiException Se si verifica un errore durante il download.
-	 */
-	private function downloadImage($url) {
-		$temp_file = download_url($url);
-
-		if (is_wp_error($temp_file)) {
-			throw new ISIGestSyncApiException(
-				'Errore nel download dell\'immagine: ' . $temp_file->get_error_message(),
-			);
-		}
-
-		return $temp_file;
 	}
 
 	/**
@@ -173,7 +146,7 @@ class ImageService {
 	private function setProductImage($product_id, $attachment_id, $is_main = false) {
 		$product = wc_get_product($product_id);
 		if (!$product) {
-			return;
+			throw new ISIGestSyncApiNotFoundException('Prodotto non trovato');
 		}
 
 		if ($is_main) {
@@ -221,31 +194,116 @@ class ImageService {
 	}
 
 	/**
-	 * Rimuove un'immagine dal prodotto e dalla libreria media.
+	 * Rimuove un'immagine dalla libreria media.
 	 *
-	 * @param integer $product_id    L'ID del prodotto.
-	 * @param integer $attachment_id L'ID dell'immagine.
+	 * @param integer $image_id    L'ID dell'immagine.
 	 * @return boolean
 	 */
-	public function removeImage($product_id, $attachment_id) {
+	public function removeImage($image_id) {
+		// Trova tutti i post/prodotti che usano questa immagine
+		$posts_using_image = get_posts([
+			'post_type' => ['product', 'product_variation'],
+			'meta_query' => [
+				'relation' => 'OR',
+				// Cerca nelle immagini in evidenza
+				[
+					'key' => '_thumbnail_id',
+					'value' => $image_id,
+					'compare' => '=',
+				],
+				// Cerca nelle gallerie
+				[
+					'key' => '_product_image_gallery',
+					'value' => $image_id,
+					'compare' => 'LIKE',
+				],
+			],
+			'posts_per_page' => -1,
+			'fields' => 'ids', // Restituisce solo gli ID per ottimizzare
+		]);
+
+		$removed_count = 0;
+
+		if (!empty($posts_using_image)) {
+			foreach ($posts_using_image as $post_id) {
+				// Rimuovi da immagine in evidenza
+				$thumbnail_id = get_post_thumbnail_id($post_id);
+				if ($thumbnail_id == $image_id) {
+					delete_post_thumbnail($post_id);
+					$removed_count++;
+				}
+
+				// Rimuovi dalla galleria
+				$gallery = get_post_meta($post_id, '_product_image_gallery', true);
+				if (!empty($gallery)) {
+					$gallery_array = explode(',', $gallery);
+					if (in_array($image_id, $gallery_array)) {
+						$gallery_array = array_diff($gallery_array, [$image_id]);
+						update_post_meta(
+							$post_id,
+							'_product_image_gallery',
+							implode(',', $gallery_array),
+						);
+						$removed_count++;
+					}
+				}
+			}
+		}
+
+		// Opzionale: elimina l'immagine dal media library
+		wp_delete_attachment($image_id, true);
+
+		return $removed_count;
+	}
+
+	/**
+	 * Ottiene le immagini di un prodotto o di una sua variante.
+	 *
+	 * @param integer $product_id ID del prodotto.
+	 * @param integer $variation_id ID della variante (opzionale).
+	 * @return array Array di oggetti immagine.
+	 * @throws ISIGestSyncApiNotFoundException Se il prodotto non viene trovato.
+	 */
+	public function getProductImages($product_id, $variation_id = 0) {
 		$product = wc_get_product($product_id);
 		if (!$product) {
-			return false;
+			throw new ISIGestSyncApiNotFoundException('Prodotto non trovato');
 		}
 
-		// Se è l'immagine principale, la rimuoviamo
-		if ($product->get_image_id() === $attachment_id) {
-			$product->set_image_id('');
+		$images = [];
+
+		if ($variation_id) {
+			// Immagini della variante
+			$variation = wc_get_product($variation_id);
+			if (!$variation) {
+				throw new ISIGestSyncApiNotFoundException('Variante non trovata');
+			}
+
+			// Immagine in evidenza della variante
+			$variation_image_id = $variation->get_image_id();
+			if ($variation_image_id) {
+				$images[] = [
+					'id' => (int) $variation_image_id,
+				];
+			}
+		} else {
+			// Immagine in evidenza del prodotto
+			$product_image_id = $product->get_image_id();
+			if ($product_image_id) {
+				$images[] = [
+					'id' => (int) $product_image_id,
+				];
+			}
+
+			// Immagini della galleria
+			$gallery_image_ids = $product->get_gallery_image_ids();
+			foreach ($gallery_image_ids as $gallery_image_id) {
+				$images[] = [
+					'id' => (int) $gallery_image_id,
+				];
+			}
 		}
 
-		// Rimuoviamo dalla galleria
-		$gallery_ids = $product->get_gallery_image_ids();
-		$gallery_ids = array_diff($gallery_ids, [$attachment_id]);
-		$product->set_gallery_image_ids($gallery_ids);
-
-		$product->save();
-
-		// Eliminiamo l'attachment
-		return wp_delete_attachment($attachment_id, true);
+		return $images;
 	}
 }

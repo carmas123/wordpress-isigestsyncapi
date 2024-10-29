@@ -198,29 +198,49 @@ class ApiHandler {
 	}
 
 	/**
+	 * Recupera i prodotti da ricevere.
+	 *
+	 * @return array
+	 * @throws ISIGestSyncApiException Se si verifica un errore durante il recupero.
+	 */
+	public function getProductImages($id_product, $variation_id) {
+		try {
+			return $this->image_service->getProductImages($id_product, $variation_id);
+		} catch (\Exception $e) {
+			throw new ISIGestSyncApiException($e->getMessage());
+		}
+	}
+
+	public function deleteProductImage($id_image) {
+		try {
+			return $this->image_service->removeImage($id_image);
+		} catch (\Exception $e) {
+			throw new ISIGestSyncApiException($e->getMessage());
+		}
+	}
+
+	/**
 	 * Gestisce l'upload di un'immagine per un prodotto.
 	 *
 	 * @param array $request I dati della richiesta.
-	 * @return array
+	 * @return int ID dell'immagine creata.
 	 * @throws ISIGestSyncApiException Se la richiesta non è valida.
 	 */
 	public function handleImage($request) {
 		try {
-			if (!isset($request['body'])) {
+			if (!isset($request['id_product'])) {
 				throw new ISIGestSyncApiBadRequestException('Body non valido');
 			}
 
-			$body = $request['body'];
-
 			// Verifica SKU e URL immagine
 			if (
-				!isset($body['sku']) ||
-				empty($body['sku']) ||
-				!isset($body['image_url']) ||
-				empty($body['image_url'])
+				!isset($request['attachment']) ||
+				empty($request['attachment']) ||
+				!isset($request['filename']) ||
+				empty($request['filename'])
 			) {
 				throw new ISIGestSyncApiBadRequestException(
-					'Richiesta non valida: SKU o URL immagine non specificati',
+					'Richiesta non valida: dati immagine non specificati',
 				);
 			}
 
@@ -231,7 +251,13 @@ class ApiHandler {
 				);
 			}
 
-			return $this->image_service->handleImageUpload($body);
+			return $this->image_service->handleImageUpload(
+				(int) $request['id_product'],
+				$request['id_product_attribute'],
+				$request['filename'],
+				$request['attachment'],
+				(bool) $request['cover'],
+			);
 		} catch (ISIGestSyncApiException $e) {
 			throw $e;
 		} catch (\Exception $e) {

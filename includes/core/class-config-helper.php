@@ -46,7 +46,19 @@ class ConfigHelper extends ConfigBaseHelper {
 	 *
 	 */
 	public static function getQuantityField(): string {
-		return self::getInstance()->get('products_use_stock_qty') ? 'stock_quantity' : 'quantity';
+		return self::getInstance()->get('products_use_stock_qty')
+			? 'stock_quantity'
+			: 'salable_quantity';
+	}
+
+	/**
+	 * Restituisce true se è attiva la gestione IVA inclusa
+	 *
+	 * @since 1.0.0
+	 *
+	 */
+	public static function getPricesWithTax(): bool {
+		return self::getInstance()->get('products_price_withtax', true);
 	}
 
 	/**

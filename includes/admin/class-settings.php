@@ -52,14 +52,311 @@ class Settings {
 	}
 
 	/**
-	 * Mostra le notifiche dopo il salvataggio delle impostazioni.
+	 * Costruisce un array di configurazione per un campo di testo.
+	 *
+	 * @param string $key       La chiave univoca del campo.
+	 * @param string $label     L'etichetta del campo da visualizzare.
+	 * @param string $tab       Il tab in cui il campo deve apparire.
+	 * @param string $section   La sezione all'interno del tab (opzionale).
+	 * @param string $info      Informazioni aggiuntive o descrizione del campo (opzionale).
+	 * @param bool   $read_only Se il campo deve essere di sola lettura (opzionale, default false).
+	 * @param string $type      Il tipo di input HTML (opzionale, default 'text').
+	 *
+	 * @return array Un array associativo che rappresenta la configurazione del campo.
 	 */
-	public function showSettingsNotices() {
-		if (isset($_GET['settings-updated']) && $_GET['settings-updated']) { ?>
-        <div class="notice notice-success is-dismissible">
-            <p><?php esc_html_e('Impostazioni salvate con successo.', 'isigestsyncapi'); ?></p>
-        </div>
-        <?php }
+	private function buildField(
+		$key,
+		$label,
+		$tab,
+		$section = '',
+		$info = '',
+		$read_only = false,
+		$type = 'text'
+	) {
+		return [
+			'type' => $type,
+			'label' => __($label, 'isigestsyncapi'),
+			'name' => $key,
+			'readonly' => $read_only,
+			'description' => empty($info) ? null : __($info, 'isigestsyncapi'),
+			'tab' => $tab,
+			'section' => $section,
+		];
+	}
+	/**
+	 * Costruisce un array di configurazione per un campo textarea.
+	 *
+	 * @param string $key       La chiave univoca del campo.
+	 * @param string $label     L'etichetta del campo da visualizzare.
+	 * @param string $tab       Il tab in cui il campo deve apparire.
+	 * @param string $section   La sezione all'interno del tab (opzionale).
+	 * @param string $info      Informazioni aggiuntive o descrizione del campo (opzionale).
+	 * @param bool   $read_only Se il campo deve essere di sola lettura (opzionale, default false).
+	 *
+	 * @return array Un array associativo che rappresenta la configurazione del campo.
+	 */
+	private function buildTextarea(
+		$key,
+		$label,
+		$tab,
+		$section = '',
+		$info = '',
+		$read_only = false
+	) {
+		return $this->buildField($key, $label, $tab, $section, $info, $read_only, 'textarea');
+	}
+
+	private function buildCheckbox(
+		$key,
+		$label,
+		$tab,
+		$section = '',
+		$info = '',
+		$read_only = false
+	) {
+		return $this->buildField($key, $label, $tab, $section, $info, $read_only, 'checkbox');
+	}
+
+	/**
+	 * Costruisce un array di configurazione per un campo select.
+	 *
+	 * @param string $key       La chiave univoca del campo.
+	 * @param string $label     L'etichetta del campo da visualizzare.
+	 * @param string $tab       Il tab in cui il campo deve apparire.
+	 * @param string $section   La sezione all'interno del tab (opzionale).
+	 * @param string $info      Informazioni aggiuntive o descrizione del campo (opzionale).
+	 * @param array  $options   Array delle opzioni del select [value => label].
+	 * @param bool   $read_only Se il campo deve essere di sola lettura (opzionale, default false).
+	 *
+	 * @return array Un array associativo che rappresenta la configurazione del campo.
+	 */
+	private function buildSelect(
+		$key,
+		$label,
+		$tab,
+		$section = '',
+		$info = '',
+		$options = [],
+		$read_only = false
+	) {
+		$field = $this->buildField($key, $label, $tab, $section, $info, $read_only, 'select');
+		$field['options'] = $options;
+		return $field;
+	}
+
+	/**
+	 * Builds a select input field for HTML import/export options.
+	 *
+	 * @param string $label    The label for the field.
+	 * @param string $key      The key for the field.
+	 * @param string $tab      The tab where the field should be displayed.
+	 * @param string $section  The section where the field should be displayed.
+	 * @param string $info     Additional information about the field.
+	 *
+	 * @return array An associative array representing the select input field.
+	 */
+	private function buildSelectHtmlFields($label, $key, $tab, $section = '', $info = '') {
+		$options = [
+			'0' => __("Importa così com'è", 'isigestsyncapi'),
+			'1' => __('Pulisci i tag html', 'isigestsyncapi'),
+			'2' => __('Non importare', 'isigestsyncapi'),
+		];
+
+		return $this->buildSelect($key, $label, $tab, $section, $info, $options);
+	}
+
+	/**
+	 * Builds a select input field for product name configuration.
+	 *
+	 * @param string $label    The label for the select input field.
+	 * @param string $key      The key for the configuration.
+	 * @param string $tab      The tab where the field should be displayed.
+	 * @param string $section  The section where the field should be displayed.
+	 * @param string $info     Additional information about the field.
+	 *
+	 * @return array The configuration array for the select input field.
+	 */
+	private function buildSelectProductName($label, $key, $tab, $section = '', $info = '') {
+		$options = [
+			'0' => __('Nome', 'isigestsyncapi'),
+			'1' => __('Tags', 'isigestsyncapi'),
+			'2' => __('Descrizione breve', 'isigestsyncapi'),
+			'3' => __('Non importare'),
+		];
+
+		return $this->buildSelect($key, $label, $tab, $section, $info, $options);
+	}
+	/**
+	 * Restituisce la struttura completa delle impostazioni del plugin
+	 *
+	 * @return array La struttura delle impostazioni
+	 */
+	public function getFormFields() {
+		return [
+			'form' => [
+				'legend' => [
+					'title' => __('Settings', 'isigestsyncapi'),
+					'icon' => 'icon-cogs',
+				],
+				'tabs' => [
+					'general' => __('General', 'isigestsyncapi'),
+					'products' => __('Prodotti', 'isigestsyncapi'),
+					'products_dont_sync' => __('Prodotti (Blocca aggiornamento)', 'isigestsyncapi'),
+					'stock' => __('Stock', 'isigestsyncapi'),
+					'sync' => __('Sync', 'isigestsyncapi'),
+					'advanced' => __('Advanced', 'isigestsyncapi'),
+				],
+				'input' => [
+					// General Settings
+					$this->buildField(
+						'api_key',
+						'Chiave API',
+						'general',
+						'Autenticazione',
+						'Chiave di autenticazione da utilizzare in ISIGest per consentile la sincronizzazione dei dati',
+						true,
+					),
+
+					// Prodotti
+					$this->buildSelectProductName(
+						'Nome prodotto',
+						'products_name',
+						'products',
+						'Dati del prodotto',
+					),
+					$this->buildSelectHtmlFields(
+						'Descrizione',
+						'products_description',
+						'products',
+						'Dati del prodotto',
+					),
+					$this->buildSelectHtmlFields(
+						'Descrizione breve',
+						'products_short_description',
+						'products',
+						'Dati del prodotto',
+					),
+
+					$this->buildCheckbox(
+						'products_reference_mode',
+						'Modalità Reference',
+						'products',
+						'Modalità',
+						'Usa il codice di riferimento invece dello SKU',
+					),
+					$this->buildCheckbox(
+						'products_disable_outofstock',
+						'Non disponibili',
+						'products',
+						'Disattivazione',
+						'Disattiva automaticamente i prodotti non più disponibili',
+					),
+					$this->buildCheckbox(
+						'products_disable_without_image',
+						'Senza immagini',
+						'products',
+						'Disattivazione',
+						'Disattiva i prodotti senza immagini',
+					),
+					$this->buildCheckbox(
+						'products_disable_empty_price',
+						'Senza prezzo',
+						'products',
+						'Disattivazione',
+						'Disattiva i prodotti senza prezzo',
+					),
+					$this->buildCheckbox(
+						'products_price_withtax',
+						'Prezzi IVA inclusa',
+						'products',
+						'Prezzi',
+						'Aggiorna il prezzo dei prodotti includendo l\'IVA',
+					),
+					$this->buildCheckbox(
+						'products_round_net_price',
+						'Arrotonda prezzi netti',
+						'products',
+						'Prezzi',
+						'Arrotonda i prezzi IVA escusa a 2 decimali',
+					),
+					$this->buildCheckbox(
+						'products_use_stock_qty',
+						'Importa la giacenza',
+						'products',
+						'Inventario',
+						'Valorizza la quantità di inventario con l\'esistenza invece della disponibilità',
+					),
+
+					// Products Don't Sync Settings
+					$this->buildCheckbox(
+						'products_dont_sync_categories',
+						'Categorie',
+						'products_dont_sync',
+						'Blocco Aggiornamenti',
+					),
+					$this->buildCheckbox(
+						'products_dont_sync_ean',
+						'Codice a barre',
+						'products_dont_sync',
+						'Blocco Aggiornamenti',
+					),
+					$this->buildCheckbox(
+						'products_dont_sync_prices',
+						'Prezzo',
+						'products_dont_sync',
+						'Blocco Aggiornamenti',
+					),
+					$this->buildCheckbox(
+						'products_dont_sync_stocks',
+						'Giacenze',
+						'products_dont_sync',
+						'Blocco Aggiornamenti',
+					),
+
+					// Stock Settings
+					$this->buildCheckbox(
+						'products_multi_warehouse',
+						'Magazzini multipli',
+						'stock',
+						'Configurazione',
+						'Abilita la gestione multi-magazzino',
+					),
+
+					// Advanced Settings
+					$this->buildCheckbox(
+						'enable_debug',
+						'Modalità debug',
+						'advanced',
+						'Debug',
+						'Abilita il log dettagliato per il debug',
+					),
+					$this->buildTextarea(
+						'debug_log',
+						'Log di debug',
+						'advanced',
+						'Debug',
+						'Log delle operazioni recenti',
+						true,
+					),
+				],
+				'submit' => [
+					'title' => __('Salva', 'isigestsyncapi'),
+				],
+			],
+		];
+	}
+
+	/**
+	 * Renderizza la pagina delle impostazioni
+	 */
+	public function renderSettingsPage() {
+		if (!current_user_can('manage_options')) {
+			wp_die(__('You do not have sufficient permissions to access this page.'));
+		}
+
+		$form_fields = $this->getFormFields();
+		$helper = new SettingsHelper();
+		$helper->renderForm($form_fields);
 	}
 
 	/**
@@ -87,318 +384,6 @@ class Settings {
 		}
 
 		return $settings;
-	}
-
-	/**
-	 * Renderizza la pagina delle impostazioni.
-	 *
-	 * @return void
-	 */
-	public function renderSettingsPage() {
-		if (!current_user_can('manage_options')) {
-			wp_die(__('You do not have sufficient permissions to access this page.'));
-		} ?>
-        <div class="wrap">
-            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-            
-            <?php $this->renderTabs(); ?>
-
-            <form method="post" action="options.php">
-                <?php
-                settings_fields('isigestsyncapi_options');
-
-                switch ($this->active_tab) {
-                	case 'products':
-                		$this->renderProductsTab();
-                		break;
-                	case 'stock':
-                		$this->renderStockTab();
-                		break;
-                	case 'sync':
-                		$this->renderSyncTab();
-                		break;
-                	case 'advanced':
-                		$this->renderAdvancedTab();
-                		break;
-                	default:
-                		$this->renderGeneralTab();
-                		break;
-                }
-
-                submit_button();?>
-            </form>
-        </div>
-        <?php
-	}
-
-	/**
-	 * Renderizza i tab delle impostazioni.
-	 *
-	 * @return void
-	 */
-
-	private function renderTabs() {
-		$current_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'general';
-		$tabs = [
-			'general' => __('General', 'isigestsyncapi'),
-			'products' => __('Prodotti', 'isigestsyncapi'),
-			'stock' => __('Stock', 'isigestsyncapi'),
-			'sync' => __('Sync', 'isigestsyncapi'),
-			'advanced' => __('Advanced', 'isigestsyncapi'),
-		];
-
-		echo '<div class="nav-tab-wrapper woo-nav-tab-wrapper">';
-		foreach ($tabs as $tab_id => $title) {
-			$url = add_query_arg(
-				[
-					'page' => 'isigestsyncapi-settings',
-					'tab' => $tab_id,
-				],
-				admin_url('admin.php'),
-			);
-
-			$active = $current_tab === $tab_id ? ' nav-tab-active' : '';
-			printf(
-				'<a href="%s" class="nav-tab%s">%s</a>',
-				esc_url($url),
-				esc_attr($active),
-				esc_html($title),
-			);
-		}
-		echo '</div>';
-	}
-
-	/**
-	 * Renderizza il tab generale.
-	 *
-	 * @return void
-	 */
-	private function renderGeneralTab() {
-		?>
-		<div class="isi-settings-group">
-			<h3><?php esc_html_e('API Configuration', 'isigestsyncapi'); ?></h3>
-			<table class="form-table">
-				<?php $this->helper->renderField([
-    	'type' => 'text',
-    	'name' => 'api_key',
-    	'label' => __('API Key', 'isigestsyncapi'),
-    	'description' => __('API Key per l\'autenticazione delle richieste', 'isigestsyncapi'),
-    	'readonly' => true,
-    	'class' => 'regular-text',
-    ]); ?>
-			</table>
-		</div>
-	
-		<div class="isi-settings-group">
-			<h3><?php esc_html_e('General Settings', 'isigestsyncapi'); ?></h3>
-			<table class="form-table">
-				<?php $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'products_reference_mode',
-    	'label' => __('Reference Mode', 'isigestsyncapi'),
-    	'description' => __('Usa il codice di riferimento invece dello SKU', 'isigestsyncapi'),
-    	'class' => 'isi-checkbox',
-    ]); ?>
-			</table>
-		</div>
-		<?php
-	}
-
-	private function renderProductsTab() {
-		?>
-		<div class="isi-settings-group">
-			<h3><?php esc_html_e('Disattivazione Prodotti', 'isigestsyncapi'); ?></h3>
-			<table class="form-table">
-				<?php
-    $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'products_disable_outofstock',
-    	'label' => __('Non disponibili', 'isigestsyncapi'),
-    	'description' => __(
-    		'Disattiva automaticamente i prodotti non più disponibili',
-    		'isigestsyncapi',
-    	),
-    ]);
-
-    $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'products_disable_without_image',
-    	'label' => __('Senza immagini', 'isigestsyncapi'),
-    	'description' => __('Disattiva i prodotti senza immagini', 'isigestsyncapi'),
-    ]);
-
-    $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'products_disable_empty_price',
-    	'label' => __('Senza prezzo', 'isigestsyncapi'),
-    	'description' => __('Disattiva i prodotti senza prezzo', 'isigestsyncapi'),
-    ]);
-    ?>
-			</table>
-		</div>
-	
-		<div class="isi-settings-group">
-			<h3><?php esc_html_e('Prezzi', 'isigestsyncapi'); ?></h3>
-			<table class="form-table">
-				<?php
-    $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'products_price_withtax',
-    	'label' => __('Prezzi IVA inclusa', 'isigestsyncapi'),
-    	'description' => __('Aggiorna il prezzo dei prodotti includendo l\'IVA', 'isigestsyncapi'),
-    ]);
-
-    $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'products_round_net_price',
-    	'label' => __('Arrotonda prezzi netti', 'isigestsyncapi'),
-    	'description' => __('Arrotonda i prezzi IVA escusa a 2 decimali', 'isigestsyncapi'),
-    	'value' => $this->config->get('products_round_net_price'),
-    ]);
-    ?>
-			</table>
-		</div>
-
-		
-		<div class="isi-settings-group">
-			<h3><?php esc_html_e('Inventario', 'isigestsyncapi'); ?></h3>
-			<table class="form-table">
-				<?php $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'products_use_stock_qty',
-    	'label' => __('Importa la giacenza', 'isigestsyncapi'),
-    	'description' => __(
-    		'Valorizza la quantità di inventario con l\'esistenza invece della disponibilità',
-    		'isigestsyncapi',
-    	),
-    ]); ?>
-			</table>
-		</div>
-	
-		<div class="isi-settings-group">
-			<h3><?php esc_html_e('Blocca Aggiornamento', 'isigestsyncapi'); ?></h3>
-			<table class="form-table">
-				<?php
-    $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'products_dont_sync_name',
-    	'label' => __('Nome prodotto', 'isigestsyncapi'),
-    ]);
-
-    $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'products_dont_sync_ean',
-    	'label' => __('Codice a barre', 'isigestsyncapi'),
-    ]);
-
-    $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'products_dont_sync_prices',
-    	'label' => __('Prezzo', 'isigestsyncapi'),
-    	'value' => $this->config->get('products_dont_sync_prices'),
-    ]);
-
-    $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'products_dont_sync_stocks',
-    	'label' => __('Giacenze', 'isigestsyncapi'),
-    	'value' => $this->config->get('products_dont_sync_prices'),
-    ]);?>
-			</table>
-		</div>
-		<?php
-	}
-
-	private function renderStockTab() {
-		?>
-		<div class="isi-settings-group">
-			<h3><?php esc_html_e('Stock Management', 'isigestsyncapi'); ?></h3>
-			<table class="form-table">
-				<?php $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'products_multi_warehouse',
-    	'label' => __('Enable multi-warehouse', 'isigestsyncapi'),
-    	'description' => __('Enable multi-warehouse support', 'isigestsyncapi'),
-    	'value' => $this->config->get('products_multi_warehouse'),
-    ]); ?>
-			</table>
-		</div>
-		<?php
-	}
-
-	private function renderSyncTab() {
-		?>
-		<div class="isi-settings-group">
-			<h3><?php esc_html_e('Synchronization Settings', 'isigestsyncapi'); ?></h3>
-			<table class="form-table">
-				<?php $this->helper->renderField([
-    	'type' => 'select',
-    	'name' => 'sync_interval',
-    	'label' => __('Sync Interval', 'isigestsyncapi'),
-    	'description' => __('How often to synchronize with ISIGest', 'isigestsyncapi'),
-    	'options' => [
-    		'never' => __('Never', 'isigestsyncapi'),
-    		'hourly' => __('Hourly', 'isigestsyncapi'),
-    		'twicedaily' => __('Twice Daily', 'isigestsyncapi'),
-    		'daily' => __('Daily', 'isigestsyncapi'),
-    	],
-    	'value' => $this->config->get('SYNC_INTERVAL', 'never'),
-    ]); ?>
-			</table>
-			
-			<div class="isi-settings-manual-sync">
-				<p><?php esc_html_e('Manual Synchronization', 'isigestsyncapi'); ?></p>
-				<button type="button" class="button button-secondary" id="sync-now">
-					<?php esc_html_e('Sync Now', 'isigestsyncapi'); ?>
-				</button>
-				<span class="spinner"></span>
-				<p class="description">
-					<?php esc_html_e('Start a manual synchronization with ISIGest', 'isigestsyncapi'); ?>
-				</p>
-			</div>
-		</div>
-		<?php
-	}
-
-	private function renderAdvancedTab() {
-		?>
-		<div class="isi-settings-group">
-			<h3><?php esc_html_e('Debug Settings', 'isigestsyncapi'); ?></h3>
-			<table class="form-table">
-				<?php
-    $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'enable_debug',
-    	'label' => __('Enable Debug Mode', 'isigestsyncapi'),
-    	'description' => __('Enable detailed logging for debugging', 'isigestsyncapi'),
-    	'value' => $this->config->get('ENABLE_DEBUG'),
-    ]);
-
-    $this->helper->renderField([
-    	'type' => 'textarea',
-    	'name' => 'debug_log',
-    	'label' => __('Debug Log', 'isigestsyncapi'),
-    	'description' => __('Recent debug log entries', 'isigestsyncapi'),
-    	'readonly' => true,
-    	'value' => $this->getDebugLog(),
-    ]);
-    ?>
-			</table>
-		</div>
-	
-		<div class="isi-settings-group">
-			<h3><?php esc_html_e('Advanced Features', 'isigestsyncapi'); ?></h3>
-			<table class="form-table">
-				<?php $this->helper->renderField([
-    	'type' => 'checkbox',
-    	'name' => 'use_legacy_mode',
-    	'label' => __('Use Legacy Mode', 'isigestsyncapi'),
-    	'description' => __('Enable for compatibility with older systems', 'isigestsyncapi'),
-    	'value' => $this->config->get('USE_LEGACY_MODE'),
-    ]); ?>
-			</table>
-		</div>
-		<?php
 	}
 
 	/**
@@ -437,34 +422,6 @@ class Settings {
 			wp_send_json_error([
 				'message' => __('Nessuna impostazione da salvare', 'isigestsyncapi'),
 			]);
-		}
-	}
-
-	/**
-	 * Gestisce il test della connessione API.
-	 *
-	 * @return void
-	 */
-	public function ajaxTestConnection() {
-		check_ajax_referer('isigestsyncapi-settings', 'nonce');
-
-		if (!current_user_can('manage_woocommerce')) {
-			wp_send_json_error(['message' => __('Unauthorized', 'isigestsyncapi')]);
-		}
-
-		try {
-			// Implementa qui il test della connessione
-			$result = true;
-
-			if ($result) {
-				wp_send_json_success([
-					'message' => __('Connection test successful', 'isigestsyncapi'),
-				]);
-			} else {
-				wp_send_json_error(['message' => __('Connection test failed', 'isigestsyncapi')]);
-			}
-		} catch (\Exception $e) {
-			wp_send_json_error(['message' => $e->getMessage()]);
 		}
 	}
 

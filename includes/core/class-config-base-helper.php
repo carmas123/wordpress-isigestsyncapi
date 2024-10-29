@@ -45,7 +45,7 @@ abstract class ConfigBaseHelper {
 		'PRODUCTS_REFERENCE_IN_MPN',
 		'PRODUCTS_ADVANCED_PRICES',
 		'PRODUCTS_MULTI_WAREHOUSES',
-		'PRODUCTS_PRICE_WITHTAX',
+		'products_price_withtax',
 		'products_round_net_price',
 		'products_reference_mode',
 
@@ -53,8 +53,8 @@ abstract class ConfigBaseHelper {
 		'products_dont_sync_ean',
 		'products_dont_sync_name',
 		'PRODUCTS_DONT_SYNC_REFERENCE',
-		'PRODUCTS_DONT_SYNC_CATEGORIES',
-		'PRODUCTS_DONT_SYNC_DIMENSION_AND_WEIGHT',
+		'products_dont_sync_categories',
+		'products_dont_sync_dimension_and_weight',
 		'products_dont_sync_prices',
 
 		// Taglie & Colori
@@ -68,14 +68,14 @@ abstract class ConfigBaseHelper {
 	 *
 	 * @var array
 	 */
-	private $string_fields = ['api_key', 'TC_SIZE_ATTRIBUTE', 'TC_COLOR_ATTRIBUTE'];
+	private $string_fields = ['api_key', 'sizeandcolor_size_key', 'sizeandcolor_color_key'];
 
 	/**
 	 * Definizioni delle opzioni intere.
 	 *
 	 * @var array
 	 */
-	private $int_fields = ['PRODUCTS_DESCRIPTION', 'PRODUCTS_SHORT_DESCRIPTION'];
+	private $int_fields = ['products_name', 'products_description', 'products_short_description'];
 
 	/**
 	 * Costruttore privato (pattern Singleton).
@@ -191,20 +191,21 @@ abstract class ConfigBaseHelper {
 			'PRODUCTS_REFERENCE_IN_MPN' => false,
 			'PRODUCTS_ADVANCED_PRICES' => false,
 			'PRODUCTS_MULTI_WAREHOUSES' => false,
-			'PRODUCTS_PRICE_WITHTAX' => false,
+			'products_price_withtax' => false,
 			'products_round_net_price' => true,
 			'products_reference_mode' => false,
 
 			// Descrizioni
-			'PRODUCTS_DESCRIPTION' => 0,
-			'PRODUCTS_SHORT_DESCRIPTION' => 0,
+			'products_name' => 0,
+			'products_description' => 0,
+			'products_short_description' => 0,
 
 			// Non sincronizzare
 			'products_dont_sync_ean' => false,
 			'products_dont_sync_name' => false,
 			'PRODUCTS_DONT_SYNC_REFERENCE' => false,
-			'PRODUCTS_DONT_SYNC_CATEGORIES' => false,
-			'PRODUCTS_DONT_SYNC_DIMENSION_AND_WEIGHT' => false,
+			'products_dont_sync_categories' => false,
+			'products_dont_sync_dimension_and_weight' => false,
 			'products_dont_sync_prices' => false,
 
 			// Taglie & Colori

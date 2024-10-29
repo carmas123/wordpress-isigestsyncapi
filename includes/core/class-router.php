@@ -69,18 +69,35 @@ class Router {
 		$body = $this->getRequestBody();
 
 		switch ("$method $path") {
+			case 'GET product/receive':
+				return $this->api_handler->getProductsToReceive();
+
+			case 'POST product/received':
+				return $this->api_handler->postProductReceived($body);
+
+			case 'GET product-image':
+				$id_product = isset($_GET['id_product']) ? (int) $_GET['id_product'] : null;
+				$variation_id = isset($_GET['id_product_attribute'])
+					? $_GET['id_product_attribute']
+					: null;
+				$id_image = isset($_GET['id_image']) ? $_GET['id_image'] : null;
+
+				return $this->api_handler->getProductImages($id_product, $variation_id);
+
+			case 'DELETE product-image':
+				$id_image = isset($_GET['id_image']) ? $_GET['id_image'] : null;
+
+				return $this->api_handler->deleteProductImage($id_image);
+
+			case 'POST product-image':
+				return $this->api_handler->handleImage($body);
+
 			case 'POST product':
 				return $this->api_handler->createUpdateProduct($body);
 
 			case 'GET product':
 				$id = isset($_GET['id']) ? $_GET['id'] : null;
 				return $this->api_handler->getProduct($id);
-
-			case 'GET product/receive':
-				return $this->api_handler->getProductsToReceive();
-
-			case 'POST product/received':
-				return $this->api_handler->postProductReceived($body);
 
 			case 'POST stock':
 				return $this->api_handler->updateStock($body);
