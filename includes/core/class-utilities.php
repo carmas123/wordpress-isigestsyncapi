@@ -168,6 +168,10 @@ class Utilities {
 		return $price;
 	}
 
+	public static function logEnabled(): bool {
+		return !ConfigHelper::getInstance()->get('enable_debug', false);
+	}
+
 	/**
 	 * Log di un errore o messaggio.
 	 *
@@ -176,6 +180,10 @@ class Utilities {
 	 * @return void
 	 */
 	public static function log($message, $type = 'info'): void {
+		if (!self::logEnabled()) {
+			return;
+		}
+
 		if (!is_string($message)) {
 			$message = print_r($message, true);
 		}
@@ -274,5 +282,51 @@ class Utilities {
 
 		$args = wp_parse_args($args, $default_args);
 		return wp_remote_request($url, $args);
+	}
+
+	/**
+	 * Pulisce la cache di un singolo prodotto WooCommerce
+	 *
+	 * @param int $product_id ID del prodotto
+	 * @return void
+	 */
+	public static function cleanProductCache($product_id) {
+		// Rimuove la cache del prodotto
+		wp_cache_delete($product_id, 'posts');
+		wp_cache_delete('product-' . $product_id, 'products');
+
+		// Pulisce anche la cache dei metadati
+		wp_cache_delete($product_id, 'post_meta');
+
+		// Pulisce la cache specifica di WooCommerce
+		wc_delete_product_transients($product_id);
+
+		// Pulisce anche la cache del data store
+		\WC_Cache_Helper::invalidate_cache_group('product_' . $product_id);
+
+		// Se stai usando object cache, questa assicura che venga ricaricato
+		clean_post_cache($product_id);
+	}
+
+	/**
+	 * Pulisce la cache di più prodotti WooCommerce
+	 *
+	 * @param array $product_ids Array di ID dei prodotti
+	 * @return void
+	 */
+	public static function cleanMultipleProductsCache($product_ids) {
+		foreach ($product_ids as $product_id) {
+			self::cleanProductCache($product_id);
+		}
+
+		// Pulisce anche la cache generale dei prodotti
+		wp_cache_delete('wc_products_onsale', 'products');
+		wp_cache_delete('wc_featured_products', 'products');
+
+		// Invalida la cache delle query dei termini
+		delete_transient('wc_term_counts');
+
+		// Pulisce la cache delle variazioni
+		\WC_Cache_Helper::invalidate_cache_group('products');
 	}
 }

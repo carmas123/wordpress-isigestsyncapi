@@ -11,7 +11,6 @@
 namespace ISIGestSyncAPI\Admin;
 
 use ISIGestSyncAPI\Core\ConfigHelper;
-use ISIGestSyncAPI\Core\Utilities;
 
 /**
  * Classe Settings per la gestione delle impostazioni del plugin.
@@ -195,16 +194,15 @@ class Settings {
 		return [
 			'form' => [
 				'legend' => [
-					'title' => __('Settings', 'isigestsyncapi'),
+					'title' => __('Impostazioni ISIGest Sync API', 'isigestsyncapi'),
 					'icon' => 'icon-cogs',
 				],
 				'tabs' => [
-					'general' => __('General', 'isigestsyncapi'),
+					'general' => __('Generale', 'isigestsyncapi'),
 					'products' => __('Prodotti', 'isigestsyncapi'),
 					'products_dont_sync' => __('Prodotti (Blocca aggiornamento)', 'isigestsyncapi'),
-					'stock' => __('Stock', 'isigestsyncapi'),
-					'sync' => __('Sync', 'isigestsyncapi'),
-					'advanced' => __('Advanced', 'isigestsyncapi'),
+					'sizesandcolors' => __('Taglie e Colori', 'isigestsyncapi'),
+					'advanced' => __('Avanzate', 'isigestsyncapi'),
 				],
 				'input' => [
 					// General Settings
@@ -236,7 +234,6 @@ class Settings {
 						'products',
 						'Dati del prodotto',
 					),
-
 					$this->buildCheckbox(
 						'products_reference_mode',
 						'Modalità Reference',
@@ -286,40 +283,80 @@ class Settings {
 						'Inventario',
 						'Valorizza la quantità di inventario con l\'esistenza invece della disponibilità',
 					),
+					$this->buildCheckbox(
+						'products_multi_warehouse',
+						'Magazzini multipli',
+						'products',
+						'Inventario',
+						'Abilita la gestione multi-magazzino',
+					),
+					$this->buildField(
+						'products_ean_key',
+						'Chiave Codice a Barre',
+						'products',
+						'Altri campi',
+						'Indica il campo slug per il codice a barre (Default: barcode)',
+					),
+					$this->buildField(
+						'products_brand_key',
+						'Chiave Marca',
+						'products',
+						'Altri campi',
+						'Indica il campo slug per le marche (Default: marca)',
+					),
 
 					// Products Don't Sync Settings
 					$this->buildCheckbox(
 						'products_dont_sync_categories',
 						'Categorie',
 						'products_dont_sync',
-						'Blocco Aggiornamenti',
+						'Seleziona gli elementi da non aggiornare',
 					),
 					$this->buildCheckbox(
 						'products_dont_sync_ean',
 						'Codice a barre',
 						'products_dont_sync',
-						'Blocco Aggiornamenti',
+						'Seleziona gli elementi da non aggiornare',
+					),
+					$this->buildCheckbox(
+						'products_dont_sync_brand',
+						'Marca',
+						'products_dont_sync',
+						'Seleziona gli elementi da non aggiornare',
 					),
 					$this->buildCheckbox(
 						'products_dont_sync_prices',
 						'Prezzo',
 						'products_dont_sync',
-						'Blocco Aggiornamenti',
+						'Seleziona gli elementi da non aggiornare',
 					),
 					$this->buildCheckbox(
 						'products_dont_sync_stocks',
 						'Giacenze',
 						'products_dont_sync',
-						'Blocco Aggiornamenti',
+						'Seleziona gli elementi da non aggiornare',
+					),
+					$this->buildCheckbox(
+						'products_dont_sync_dimension_and_weight',
+						'Dimensione e Peso',
+						'products_dont_sync',
+						'Seleziona gli elementi da non aggiornare',
 					),
 
-					// Stock Settings
-					$this->buildCheckbox(
-						'products_multi_warehouse',
-						'Magazzini multipli',
-						'stock',
-						'Configurazione',
-						'Abilita la gestione multi-magazzino',
+					// Taglie&Colori
+					$this->buildField(
+						'sizeandcolor_size_key',
+						'Chiave Taglie',
+						'sizesandcolors',
+						'Definizione',
+						'Indica il campo slug per le taglie (Default: taglia)',
+					),
+					$this->buildField(
+						'sizeandcolor_color_key',
+						'Chiave Colori',
+						'sizesandcolors',
+						'Definizione',
+						'Indica il campo slug per i colori (Default: colore)',
 					),
 
 					// Advanced Settings
@@ -414,6 +451,9 @@ class Settings {
 			$sanitized_settings = $this->sanitizeSettings($input);
 			update_option('isigestsyncapi_settings', $sanitized_settings);
 
+			// Azzeriamo la cache delle opzioni
+			ConfigHelper::clearCacheStatic();
+
 			wp_send_json_success([
 				'message' => __('Impostazioni salvate con successo', 'isigestsyncapi'),
 				'settings' => $sanitized_settings, // Per debug
@@ -423,19 +463,5 @@ class Settings {
 				'message' => __('Nessuna impostazione da salvare', 'isigestsyncapi'),
 			]);
 		}
-	}
-
-	/**
-	 * Ottiene il log di debug.
-	 *
-	 * @return string
-	 */
-	private function getDebugLog() {
-		$log_file = WP_CONTENT_DIR . '/debug-isigest.log';
-		if (!file_exists($log_file)) {
-			return '';
-		}
-
-		return file_get_contents($log_file);
 	}
 }

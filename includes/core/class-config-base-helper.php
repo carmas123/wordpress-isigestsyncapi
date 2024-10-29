@@ -40,27 +40,17 @@ abstract class ConfigBaseHelper {
 		'products_disable_outofstock',
 		'products_disable_without_image',
 		'products_disable_empty_price',
-		'PRODUCTS_USE_CODE_AS_REFERENCE',
 		'products_use_stock_qty',
-		'PRODUCTS_REFERENCE_IN_MPN',
-		'PRODUCTS_ADVANCED_PRICES',
-		'PRODUCTS_MULTI_WAREHOUSES',
+		'products_multi_warehouse',
 		'products_price_withtax',
 		'products_round_net_price',
 		'products_reference_mode',
 
 		// Blocca Aggiornamenti
 		'products_dont_sync_ean',
-		'products_dont_sync_name',
-		'PRODUCTS_DONT_SYNC_REFERENCE',
 		'products_dont_sync_categories',
 		'products_dont_sync_dimension_and_weight',
 		'products_dont_sync_prices',
-
-		// Taglie & Colori
-		'TC_ENABLED',
-		'TC_SPLIT_BY_COLOR',
-		'TC_ADD_COLOR_TO_NAME',
 	];
 
 	/**
@@ -100,13 +90,6 @@ abstract class ConfigBaseHelper {
 
 		$option_name = $this->prefix . $key;
 		$value = get_option($option_name, $default);
-
-		// Converte il valore in base al tipo di campo
-		if (in_array($key, $this->boolean_fields, true)) {
-			$value = filter_var($value, FILTER_VALIDATE_BOOLEAN);
-		} elseif (in_array($key, $this->int_fields, true)) {
-			$value = (int) $value;
-		}
 
 		// Memorizza in cache
 		$this->options_cache[$key] = $value;
@@ -186,14 +169,16 @@ abstract class ConfigBaseHelper {
 			'products_disable_outofstock' => true,
 			'products_disable_without_image' => true,
 			'products_disable_empty_price' => true,
-			'PRODUCTS_USE_CODE_AS_REFERENCE' => false,
-			'products_use_stock_qty' => true,
-			'PRODUCTS_REFERENCE_IN_MPN' => false,
-			'PRODUCTS_ADVANCED_PRICES' => false,
-			'PRODUCTS_MULTI_WAREHOUSES' => false,
-			'products_price_withtax' => false,
-			'products_round_net_price' => true,
+			'products_use_stock_qty' => false,
+			'products_price_withtax' => true,
+			'products_round_net_price' => false,
 			'products_reference_mode' => false,
+			'products_brand_key' => 'marca',
+			'products_ean_key' => 'barcode',
+
+			// Taglie&Colori
+			'sizeandcolor_size_key' => 'taglia',
+			'sizeandcolor_color_key' => 'colore',
 
 			// Descrizioni
 			'products_name' => 0,
@@ -201,19 +186,12 @@ abstract class ConfigBaseHelper {
 			'products_short_description' => 0,
 
 			// Non sincronizzare
-			'products_dont_sync_ean' => false,
-			'products_dont_sync_name' => false,
-			'PRODUCTS_DONT_SYNC_REFERENCE' => false,
 			'products_dont_sync_categories' => false,
-			'products_dont_sync_dimension_and_weight' => false,
+			'products_dont_sync_ean' => false,
+			'products_dont_sync_brand' => false,
 			'products_dont_sync_prices' => false,
-
-			// Taglie & Colori
-			'TC_ENABLED' => false,
-			'TC_SPLIT_BY_COLOR' => false,
-			'TC_ADD_COLOR_TO_NAME' => false,
-			'TC_SIZE_ATTRIBUTE' => '',
-			'TC_COLOR_ATTRIBUTE' => '',
+			'products_dont_sync_dimension_and_weight' => false,
+			'products_dont_sync_stocks' => false,
 		];
 
 		foreach ($defaults as $key => $value) {
@@ -230,41 +208,7 @@ abstract class ConfigBaseHelper {
 		return wp_generate_password(32, false);
 	}
 
-	/**
-	 * Ottiene tutte le opzioni.
-	 *
-	 * @return array
-	 */
-	public function get_all() {
-		$options = [];
-
-		// Combina tutti i campi
-		$all_fields = array_merge($this->boolean_fields, $this->string_fields, $this->int_fields);
-
-		// Ottiene i valori per ogni campo
-		foreach ($all_fields as $field) {
-			$options[$field] = $this->get($field);
-		}
-
-		return $options;
+	public function clearCache() {
+		$this->options_cache = [];
 	}
-
-	/**
-	 * Resetta tutte le opzioni ai valori di default.
-	 *
-	 * @return void
-	 */
-	public function reset() {
-		// Elimina tutte le opzioni esistenti
-		$all_fields = array_merge($this->boolean_fields, $this->string_fields, $this->int_fields);
-
-		foreach ($all_fields as $field) {
-			$this->delete($field);
-		}
-
-		// Ricarica i default
-		$this->load_default_options();
-	}
-
-	// Altre proprietà
 }

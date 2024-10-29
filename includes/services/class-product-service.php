@@ -32,13 +32,6 @@ class ProductService extends BaseService {
 	private $status_handler;
 
 	/**
-	 * Handler per le offerte.
-	 *
-	 * @var ProductOffersHandler
-	 */
-	private $offers_handler;
-
-	/**
 	 * Prezzi IVA inclusa
 	 *
 	 * @var bool $prices_with_tax Se i prezzi devono essere inclusi IVA.
@@ -55,7 +48,6 @@ class ProductService extends BaseService {
 		$this->prices_with_tax = ConfigHelper::getPricesWithTax();
 
 		$this->status_handler = new ProductStatusHandler();
-		$this->offers_handler = new ProductOffersHandler();
 	}
 
 	/**
@@ -68,75 +60,68 @@ class ProductService extends BaseService {
 	public function createOrUpdate($data) {
 		global $wpdb;
 
-		DbHelper::startTransaction();
-		try {
-			$isigest = $data['isigest'] ?? null;
-			if (!$isigest) {
-				throw new ISIGestSyncApiBadRequestException('Dati ISIGest non trovati');
-			}
+		$isigest = $data['isigest'] ?? null;
+		if (!$isigest) {
+			throw new ISIGestSyncApiBadRequestException('Dati ISIGest non trovati');
+		}
 
-			// Verifica se il prodotto è a Taglie&Colori
-			$is_tc = (bool) $isigest['is_tc'];
-			if ($is_tc && !$this->config->get('TC_ENABLED')) {
-				throw new ISIGestSyncApiException(
-					'Prodotto a Taglie&Colori non sincronizzabile: configurazione non abilitata',
-				);
-			}
-
-			// Cerchiamo il prodotto per SKU
-			$product_id =
-				$this->findProductBySku($data['sku']) ?? $this->findProductByWCSku($data['sku']);
-			$product = $product_id ? wc_get_product($product_id) : null;
-			$is_new = !$product;
-
-			$use_attributes =
-				$is_tc ||
-				(isset($data['attributes']) &&
-					is_array($data['attributes']) &&
-					count($data['attributes']) > 0);
-
-			// Se il prodotto non esiste, lo creiamo
-			if ($is_new) {
-				$product = $use_attributes ? new \WC_Product_Variable() : new \WC_Product_Simple();
-			}
-
-			// Aggiorniamo i dati base del prodotto
-			$this->updateBasicProductData($product, $data);
-
-			// Gestione varianti
-			if ($use_attributes) {
-				$this->handleVariants($product, $data);
-				$this->updateParentPriceMeta($product);
-			}
-
-			// Salviamo il prodotto
-			$product->save();
-
-			// Storicizziamo il prodotto
-			$this->historyProduct($product->get_id(), 0, $isigest);
-
-			// Aggiorniamo lo stock se non è un prodotto con varianti
-			if (!$product->is_type('variable')) {
-				$this->updateProductStock($product->get_id(), $data);
-			}
-
-			// Verifichiamo lo stato del prodotto
-			$force_disable = isset($data['active']) && !$data['active'];
-			// FINIRE QUI IL CONTROLLO DELL'ATTIVAZIONE/DISATTIVAZIONE ID UN PRODOTTO
-			// TENERE PRESENTE CHE PER LE VARIANTI NON BISOGNA IMPOSTARE LA VARIANTE IN DRAFT
-			// MA DISATTIVARLA
-			// $this->status_handler->checkAndUpdateProductStatus($product->get_id(), $force_disable);
-
-			DbHelper::commitTransaction();
-
-			// Ritorniamo i dati del prodotto
-			return $this->get($product->get_id());
-		} catch (\Exception $e) {
-			DbHelper::rollbackTransaction();
+		// Verifica se il prodotto è a Taglie&Colori
+		$is_tc = (bool) $isigest['is_tc'];
+		if ($is_tc) {
 			throw new ISIGestSyncApiException(
-				'Errore durante la gestione del prodotto: ' . $e->getMessage(),
+				'Prodotto a Taglie&Colori non sincronizzabile: configurazione non abilitata',
 			);
 		}
+
+		// Cerchiamo il prodotto per SKU
+		$product_id =
+			$this->findProductBySku($data['sku']) ?? $this->findProductByWCSku($data['sku']);
+		$product = $product_id ? wc_get_product($product_id) : null;
+		$is_new = !$product;
+
+		$use_attributes =
+			$is_tc ||
+			(isset($data['attributes']) &&
+				is_array($data['attributes']) &&
+				count($data['attributes']) > 0);
+
+		// Se il prodotto non esiste, lo creiamo
+		if ($is_new) {
+			$product = $use_attributes ? new \WC_Product_Variable() : new \WC_Product_Simple();
+		}
+
+		// Aggiorniamo i dati base del prodotto
+		$this->updateBasicProductData($product, $data);
+
+		// Gestione varianti
+		if ($use_attributes) {
+			$this->handleVariants($product, $data);
+			$this->updateParentPriceMeta($product);
+		}
+
+		// Salviamo il prodotto
+		$product->save();
+
+		// Storicizziamo il prodotto
+		$this->historyProduct($product->get_id(), 0, $isigest);
+
+		// Aggiorniamo lo stock se non è un prodotto con varianti
+		if (!$product->is_type('variable')) {
+			StockService::updateProductStock($product->get_id(), $data);
+		}
+
+		// Verifichiamo lo stato del prodotto
+		$force_disable = isset($data['active']) && !$data['active'];
+		$this->status_handler->checkAndUpdateProductStatus(
+			$product->get_id(),
+			false,
+			$force_disable,
+		);
+
+		DbHelper::commitTransaction();
+
+		// Ritorniamo i dati del prodotto
+		return $this->get($product->get_id());
 	}
 
 	/**
@@ -221,8 +206,6 @@ class ProductService extends BaseService {
 			);
 		}
 
-		$product->set_status(isset($data['active']) && $data['active'] ? 'publish' : 'draft');
-
 		// Prezzo solo per i prodotti semplici
 		if (
 			!$this->config->get('products_dont_sync_prices') &&
@@ -254,12 +237,16 @@ class ProductService extends BaseService {
 		$product->save();
 
 		// Marca (Brand)
-		if (isset($data['brand']) && isset($data['brand']['name'])) {
+		if (
+			!$this->config->get('products_dont_sync_brand', false) &&
+			isset($data['brand']) &&
+			isset($data['brand']['name'])
+		) {
 			$this->updateProductBrand($product, $data['brand']['name']);
 		}
 
 		// Codice a barre
-		if (isset($data['ean13'])) {
+		if (!$this->config->get('products_dont_sync_ean', false) && isset($data['ean13'])) {
 			update_post_meta(
 				$product->get_id(),
 				ConfigHelper::getBarcodeMetaKey(),
@@ -383,7 +370,7 @@ class ProductService extends BaseService {
 	 * Storicizza un prodotto.
 	 *
 	 * @param integer $post_id           ID del prodotto.
-	 * @param integer $id_product_attribute ID dell'attributo prodotto.
+	 * @param integer $variant_id ID dell'attributo prodotto.
 	 * @param array   $data                 Dati da storicizzare.
 	 * @return void
 	 */
@@ -391,7 +378,7 @@ class ProductService extends BaseService {
 		global $wpdb;
 
 		if (empty($data)) {
-			if (empty($id_product_attribute)) {
+			if (empty($variant_id)) {
 				$wpdb->delete($wpdb->prefix . 'isi_api_product', ['post_id' => $post_id], ['%d']);
 			} else {
 				$wpdb->delete(
@@ -436,7 +423,7 @@ class ProductService extends BaseService {
 		$result = $wpdb->replace(
 			$wpdb->prefix . 'isi_api_export_product',
 			[
-				'id_product' => $product_id,
+				'post_id' => $product_id,
 				'exported' => 1,
 				'exported_at' => current_time('mysql'),
 			],
@@ -457,10 +444,10 @@ class ProductService extends BaseService {
 		$products = $wpdb->get_results("
                 SELECT DISTINCT p.ID 
                 FROM {$wpdb->posts} p
-                LEFT JOIN {$wpdb->prefix}isi_api_export_product e ON p.ID = e.id_product
+                LEFT JOIN {$wpdb->prefix}isi_api_export_product e ON p.ID = e.post_id
                 WHERE p.post_type = 'product'
                 AND p.post_status = 'publish'
-                AND (e.id_product IS NULL OR e.exported = 0 OR p.post_modified <> e.exported_at)
+                AND (e.post_id IS NULL OR e.exported = 0 OR p.post_modified <> e.exported_at)
             ");
 
 		$result = [];
@@ -473,46 +460,6 @@ class ProductService extends BaseService {
 		}
 
 		return $result;
-	}
-
-	/**
-	 * Utility per trovare un prodotto tramite SKU.
-	 *
-	 * @param string $sku Lo SKU da cercare.
-	 * @return integer|null
-	 */
-	private function findProductBySku($sku) {
-		global $wpdb;
-
-		$result = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT id_product 
-                FROM {$wpdb->prefix}isi_api_product 
-                WHERE codice = %s",
-				$sku,
-			),
-		);
-
-		return $result ? (int) $result : null;
-	}
-
-	/**
-	 * Utility per trovare un prodotto tramite SKU in WooCommerce.
-	 *
-	 * @param string $sku Lo SKU da cercare.
-	 * @param boolean $include_variants Flag per includere le variazioni.
-	 * @return integer|null
-	 */
-	function findProductByWCSku($sku, $include_variants = true) {
-		// Prima cerca tra i prodotti normali
-		$product_id = wc_get_product_id_by_sku($sku);
-
-		// Se non trova nulla, cerca tra le varianti
-		if ($include_variants && !$product_id) {
-			$product_id = $this->findVariationBySku($sku);
-		}
-
-		return $product_id;
 	}
 
 	/**
@@ -624,30 +571,6 @@ class ProductService extends BaseService {
 	}
 
 	/**
-	 * Aggiorna lo stock di un prodotto
-	 *
-	 * @param int    $product_id   ID del prodotto
-	 * @param array  $data         Dati dello stock
-	 * @return void
-	 */
-	private function updateProductStock($product_id, $data) {
-		$product = wc_get_product($product_id);
-		if (!$product) {
-			return;
-		}
-
-		$quantity = isset($data['quantity']) ? (int) $data['quantity'] : 0;
-
-		$product->set_manage_stock(true);
-		$product->set_stock_quantity($quantity);
-		$product->set_stock_status($quantity > 0 ? 'instock' : 'outofstock');
-		$product->save();
-
-		// Aggiorna la cache
-		wc_delete_product_transients($product_id);
-	}
-
-	/**
 	 * Aggiorna le categorie di un prodotto
 	 *
 	 * @param \WC_Product $product    Prodotto
@@ -678,8 +601,8 @@ class ProductService extends BaseService {
 		$attributes = [];
 
 		if ($is_tc) {
-			$attributes['pa_taglia'] = $variant['size_name'];
-			$attributes['pa_colore'] = $variant['color_name'];
+			$attributes[ConfigHelper::getSizeAndColorSizeKey()] = $variant['size_name'];
+			$attributes[ConfigHelper::getSizeAndColorColorKey()] = $variant['color_name'];
 		} else {
 			// Attributi standard
 			for ($i = 1; $i <= 3; $i++) {
@@ -974,10 +897,10 @@ class ProductService extends BaseService {
 			// Gestione attributi standard o taglie/colori
 			if ((bool) $isigest['is_tc']) {
 				if (!empty($variant['size_name'])) {
-					$attributes['taglia'][] = $variant['size_name'];
+					$attributes[ConfigHelper::getSizeAndColorSizeKey()][] = $variant['size_name'];
 				}
 				if (!empty($variant['color_name'])) {
-					$attributes['colore'][] = $variant['color_name'];
+					$attributes[ConfigHelper::getSizeAndColorColorKey()][] = $variant['color_name'];
 				}
 			} else {
 				// Gestione attributi standard
@@ -1065,19 +988,10 @@ class ProductService extends BaseService {
 		}
 
 		// Imposta stock
-		if (!$this->config->get('products_dont_sync_stocks')) {
-			$variation->set_manage_stock(true);
-			$variation->set_stock_quantity((int) $data[ConfigHelper::getQuantityField()] ?? 0);
-			$variation->set_stock_status(
-				((int) $data[ConfigHelper::getQuantityField()] ?? 0) > 0 ? 'instock' : 'outofstock',
-			);
-		}
-
-		// Imposta stato
-		$variation->set_status('publish');
+		StockService::updateProductStock($variation->get_id(), $data);
 
 		// Codice a barre
-		if (isset($data['ean13'])) {
+		if (!$this->config->get('products_dont_sync_ean', false) && isset($data['ean13'])) {
 			update_post_meta(
 				$variation->get_id(),
 				ConfigHelper::getBarcodeMetaKey(),
@@ -1123,7 +1037,16 @@ class ProductService extends BaseService {
 
 		// Verifica se la tassonomia del brand esiste
 		$taxonomy = ConfigHelper::getBrandMetaKey();
+
 		if (!taxonomy_exists($taxonomy)) {
+			wc_create_attribute([
+				'name' => ucfirst('Marca'),
+				'slug' => $taxonomy,
+				'type' => 'select',
+				'order_by' => 'name',
+				'has_archives' => true,
+			]);
+
 			// Registra la tassonomia se non esiste
 			register_taxonomy($taxonomy, 'product', [
 				'hierarchical' => false,

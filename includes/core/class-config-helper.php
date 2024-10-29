@@ -62,17 +62,6 @@ class ConfigHelper extends ConfigBaseHelper {
 	}
 
 	/**
-	 * Restituisce true se è attiva la gestione Taglie&Colori
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return bool
-	 */
-	public static function productUseTC(): string {
-		return self::getInstance()->get('products_use_stock_qty') ? 'stock_quantity' : 'quantity';
-	}
-
-	/**
 	 * Ritorna la chiave meta per la gestione del codice a barre
 	 *
 	 * @since 1.0.0
@@ -80,7 +69,7 @@ class ConfigHelper extends ConfigBaseHelper {
 	 * @return string
 	 */
 	public static function getBarcodeMetaKey(): string {
-		return '_global_unique_id';
+		return ConfigHelper::$instance->get('products_brand_key');
 	}
 
 	/**
@@ -91,6 +80,36 @@ class ConfigHelper extends ConfigBaseHelper {
 	 * @return string
 	 */
 	public static function getBrandMetaKey(): string {
-		return '_brand';
+		return Utilities::ifBlank(ConfigHelper::$instance->get('products_brand_key'), 'marca');
+	}
+
+	/**
+	 * Ritorna la chiave meta per la gestione della taglia
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	public static function getSizeAndColorSizeKey(): string {
+		return wc_attribute_taxonomy_name(
+			Utilities::ifBlank(ConfigHelper::$instance->get('sizeandcolor_size_key'), 'taglia'),
+		);
+	}
+
+	/**
+	 * Ritorna la chiave meta per la gestione del colore
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	public static function getSizeAndColorColorKey(): string {
+		return wc_attribute_taxonomy_name(
+			Utilities::ifBlank(ConfigHelper::$instance->get('sizeandcolor_color_key'), 'colore'),
+		);
+	}
+
+	public static function clearCacheStatic() {
+		self::getInstance()->clearCache();
 	}
 }

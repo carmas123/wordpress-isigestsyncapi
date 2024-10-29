@@ -107,17 +107,15 @@ class ApiHandler {
 	/**
 	 * Recupera i dati di un prodotto.
 	 *
-	 * @param array $request I dati della richiesta.
+	 * @param int $product_id I dati della richiesta.
 	 * @return array
 	 * @throws ISIGestSyncApiException Se il prodotto non viene trovato.
 	 */
-	public function getProduct($request) {
+	public function getProduct($product_id) {
+		if (!$product_id) {
+			throw new ISIGestSyncApiBadRequestException('ID prodotto non valido');
+		}
 		try {
-			$product_id = isset($request['params'][1]) ? (int) $request['params'][1] : 0;
-			if (!$product_id) {
-				throw new ISIGestSyncApiBadRequestException('ID prodotto non valido');
-			}
-
 			return $this->product_service->get($product_id);
 		} catch (ISIGestSyncApiException $e) {
 			throw $e;
@@ -144,7 +142,7 @@ class ApiHandler {
 	 * Conferma la ricezione di un prodotto.
 	 *
 	 * @param array $request I dati della richiesta.
-	 * @return array
+	 * @return bool
 	 * @throws ISIGestSyncApiException Se la richiesta non è valida.
 	 */
 	public function postProductReceived($request) {
@@ -174,13 +172,11 @@ class ApiHandler {
 	 * @return array
 	 * @throws ISIGestSyncApiException Se la richiesta non è valida.
 	 */
-	public function updateStock($request) {
+	public function updateStock($body) {
 		try {
-			if (!isset($request['body'])) {
+			if (!isset($body) || !is_array($body) || empty($body)) {
 				throw new ISIGestSyncApiBadRequestException('Body non valido');
 			}
-
-			$body = $request['body'];
 
 			// Verifica SKU
 			if (!isset($body['sku']) || empty($body['sku'])) {
@@ -203,9 +199,9 @@ class ApiHandler {
 	 * @return array
 	 * @throws ISIGestSyncApiException Se si verifica un errore durante il recupero.
 	 */
-	public function getProductImages($id_product, $variation_id) {
+	public function getProductImages($post_id, $variation_id) {
 		try {
-			return $this->image_service->getProductImages($id_product, $variation_id);
+			return $this->image_service->getProductImages($post_id, $variation_id);
 		} catch (\Exception $e) {
 			throw new ISIGestSyncApiException($e->getMessage());
 		}
@@ -223,12 +219,12 @@ class ApiHandler {
 	 * Gestisce l'upload di un'immagine per un prodotto.
 	 *
 	 * @param array $request I dati della richiesta.
-	 * @return int ID dell'immagine creata.
+	 * @return array Dati dell'immagine creata.
 	 * @throws ISIGestSyncApiException Se la richiesta non è valida.
 	 */
 	public function handleImage($request) {
 		try {
-			if (!isset($request['id_product'])) {
+			if (!isset($request['post_id'])) {
 				throw new ISIGestSyncApiBadRequestException('Body non valido');
 			}
 
@@ -252,8 +248,8 @@ class ApiHandler {
 			}
 
 			return $this->image_service->handleImageUpload(
-				(int) $request['id_product'],
-				$request['id_product_attribute'],
+				(int) $request['post_id'],
+				$request['variant_id'],
 				$request['filename'],
 				$request['attachment'],
 				(bool) $request['cover'],

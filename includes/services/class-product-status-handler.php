@@ -11,6 +11,7 @@
 namespace ISIGestSyncAPI\Services;
 
 use ISIGestSyncAPI\Core\ConfigHelper;
+use ISIGestSyncAPI\Core\DbHelper;
 use ISIGestSyncAPI\Core\Utilities;
 
 /**
@@ -29,19 +30,24 @@ class ProductStatusHandler extends BaseService {
 	/**
 	 * Verifica e aggiorna lo stato di un prodotto.
 	 *
-	 * @param integer $product_id    ID del prodotto.
-	 * @param boolean $force_disable Forza la disattivazione.
+	 * @param integer $product_id   ID del prodotto.
+	 * @param boolean $is_variant 	Indica se è una variante
+	 * @param boolean $force_disable Forza la disattivazione del prodotto (Default false).
 	 * @return boolean True se lo stato è stato aggiornato.
 	 */
-	public function checkAndUpdateProductStatus($product_id, $force_disable = false) {
+	public static function checkAndUpdateProductStatus(
+		$product_id,
+		$is_variant,
+		$force_disable = false
+	) {
 		$product = wc_get_product($product_id);
 		if (!$product) {
 			return false;
 		}
 
-		$should_be_active = $this->shouldProductBeActive($product, $force_disable);
+		$should_be_active = !$force_disable && self::shouldProductBeActive($product);
 		$current_status = $product->get_status();
-		$new_status = $should_be_active ? 'publish' : 'draft';
+		$new_status = $should_be_active ? 'publish' : ($is_variant ? 'private' : 'draft');
 
 		if ($current_status !== $new_status) {
 			$product->set_status($new_status);
@@ -58,17 +64,103 @@ class ProductStatusHandler extends BaseService {
 				'info',
 			);
 
-			// Se il prodotto è variabile, aggiorniamo anche le varianti
-			if ($product->is_type('variable')) {
-				foreach ($product->get_children() as $child_id) {
-					$this->checkAndUpdateProductStatus($child_id, !$should_be_active);
-				}
+			// Aggiorniamo lo stato del Padre
+			if ($is_variant) {
+				self::checkAndUpdateParentStatus($product_id);
 			}
 
-			// Verifichiamo le categorie se necessario
-			if ($this->config->get('CATEGORIES_DISABLE_IF_EMPTY')) {
-				$this->checkCategories();
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Verifica e aggiorna lo stato del prodotto padre basato sullo stato delle sue varianti.
+	 *
+	 * @param integer $product_id ID del prodotto variante.
+	 * @return boolean True se lo stato del padre è stato aggiornato.
+	 */
+	private static function checkAndUpdateParentStatus($product_id) {
+		// Azzeriamo la cache
+		Utilities::cleanProductCache($product_id);
+
+		// Ottieni il prodotto variante
+		$variant = wc_get_product($product_id);
+		if (!$variant || !$variant->is_type('variation')) {
+			return false;
+		}
+
+		// Ottieni il prodotto padre
+		$parent_id = $variant->get_parent_id();
+
+		// Azzeriamo la cache
+		Utilities::cleanProductCache($parent_id);
+
+		$parent = wc_get_product($parent_id);
+		if (!$parent) {
+			return false;
+		}
+
+		// Ottieni tutte le varianti usando get_children()
+		$variation_ids = $parent->get_children();
+
+		// Se non ci sono varianti (caso improbabile dato che stiamo processando una variante)
+		// ma meglio mantenere il controllo per sicurezza
+		if (empty($variation_ids)) {
+			Utilities::log(
+				sprintf(
+					'Nessuna variante trovata per il prodotto padre %d (caso inatteso)',
+					$parent_id,
+				),
+				'warning',
+			);
+			return false;
+		}
+
+		// Controlla lo stato di tutte le varianti
+		$all_inactive = true;
+		foreach ($variation_ids as $variation_id) {
+			// Azzeriamo la cache
+			Utilities::cleanProductCache($variation_id);
+
+			$variation_product = wc_get_product($variation_id);
+			if ($variation_product && $variation_product->get_status() === 'publish') {
+				$all_inactive = false;
+				break;
 			}
+		}
+
+		// Se tutte le varianti sono disattivate, disattiva il padre
+		if ($all_inactive && $parent->get_status() !== 'draft') {
+			$parent->set_status('draft');
+			$parent->save();
+
+			// Log del cambio di stato
+			Utilities::log(
+				sprintf(
+					'Stato prodotto padre %d impostato a draft perché tutte le varianti sono disattivate',
+					$parent_id,
+				),
+				'info',
+			);
+
+			return true;
+		}
+
+		// Se almeno una variante è attiva, assicurati che il padre sia pubblicato
+		if (!$all_inactive && $parent->get_status() !== 'publish') {
+			$parent->set_status('publish');
+			$parent->save();
+
+			// Log del cambio di stato
+			Utilities::log(
+				sprintf(
+					'Stato prodotto padre %d impostato a publish perché almeno una variante è attiva',
+					$parent_id,
+				),
+				'info',
+			);
 
 			return true;
 		}
@@ -80,16 +172,14 @@ class ProductStatusHandler extends BaseService {
 	 * Determina se un prodotto dovrebbe essere attivo.
 	 *
 	 * @param \WC_Product $product       Il prodotto.
-	 * @param boolean     $force_disable Forza la disattivazione.
 	 * @return boolean
 	 */
-	private function shouldProductBeActive($product, $force_disable) {
-		if ($force_disable) {
-			return false;
-		}
-
+	public static function shouldProductBeActive($product) {
 		// Controllo immagine
-		if ($this->config->get('products_disable_without_image') && !$product->get_image_id()) {
+		if (
+			ConfigHelper::getInstance()->get('products_disable_without_image') &&
+			!$product->get_image_id()
+		) {
 			Utilities::log(
 				sprintf('Prodotto %d disattivato: nessuna immagine', $product->get_id()),
 				'info',
@@ -98,7 +188,7 @@ class ProductStatusHandler extends BaseService {
 		}
 
 		// Controllo prezzo
-		if ($this->config->get('products_disable_empty_price')) {
+		if (ConfigHelper::getInstance()->get('products_disable_empty_price')) {
 			$price = $product->get_regular_price();
 			if (empty($price) || $price <= 0) {
 				Utilities::log(
@@ -110,7 +200,7 @@ class ProductStatusHandler extends BaseService {
 		}
 
 		// Controllo stock
-		if ($this->config->get('products_disable_outofstock')) {
+		if (ConfigHelper::getInstance()->get('products_disable_outofstock')) {
 			$stock_quantity = $product->get_stock_quantity();
 			if (is_null($stock_quantity) || $stock_quantity <= 0) {
 				Utilities::log(

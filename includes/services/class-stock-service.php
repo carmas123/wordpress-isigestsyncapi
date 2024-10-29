@@ -11,6 +11,7 @@
 namespace ISIGestSyncAPI\Services;
 
 use ISIGestSyncAPI\Core\DbHelper;
+use ISIGestSyncAPI\Core\ISIGestSyncApiWarningException;
 use ISIGestSyncAPI\Core\Utilities;
 use ISIGestSyncAPI\Core\ConfigHelper;
 use ISIGestSyncAPI\Core\ISIGestSyncApiException;
@@ -37,6 +38,10 @@ class StockService extends BaseService {
 		$this->status_handler = new ProductStatusHandler();
 	}
 
+	public static function syncEnabled(): bool {
+		return !ConfigHelper::getInstance()->get('products_dont_sync_stocks', false);
+	}
+
 	/**
 	 * Aggiorna lo stock di un prodotto.
 	 *
@@ -48,60 +53,71 @@ class StockService extends BaseService {
 	public function updateStock($data, $reference_mode = false) {
 		global $wpdb;
 
-		try {
-			DbHelper::startTransaction();
+		if (!self::syncEnabled()) {
+			throw new ISIGestSyncApiWarningException('Sincronizzati giacenze prodotti disattivata');
+		}
 
-			// Verifichiamo se cercare per reference o per sku
-			if ($reference_mode) {
-				$product_data = $this->findProductByReference($data['reference']);
-			} else {
-				$product_data = $this->findProductBySku($data['sku']);
-			}
+		// Verifichiamo se cercare per reference o per sku
+		if ($reference_mode && empty($data['reference'])) {
+			throw new ISIGestSyncApiBadRequestException('Reference prodotto non specificato');
+		} elseif ($reference_mode) {
+			$product_id = $this->findProductByReference($data['reference']);
+		} else {
+			$product_id =
+				$this->findProductBySku($data['sku']) ??
+				$this->findProductByWCSku($data['sku'], true);
+		}
 
-			if (!$product_data) {
-				throw new ISIGestSyncApiBadRequestException('Prodotto non trovato');
-			}
+		if (!$product_id) {
+			throw new ISIGestSyncApiWarningException('Prodotto non trovato');
+		}
 
-			$product_id = $product_data['post_id'];
-			$variation_id = $product_data['variation_id'];
+		// Aggiorniamo i dati per la gestione della seconda unità di misura
+		$this->applyUnitConversion($data);
 
-			// Aggiorniamo i dati per la gestione della seconda unità di misura
-			$this->applyUnitConversion($data);
+		// Carichiamo il prodotto
+		$variation_id = 0;
+		$p = wc_get_product($product_id);
+		// Verifichiamo se il prodotto è una variante
+		$is_variation = $p->is_type('variation');
 
-			// Gestiamo il magazzino multiplo se abilitato
-			if ($this->config->get('PRODUCTS_MULTI_WAREHOUSES')) {
-				$this->handleMultiWarehouse($product_id, $variation_id, $data);
-			} else {
-				$this->handleSingleWarehouse($product_id, $variation_id, $data);
-			}
+		if ($is_variation) {
+			// Impostiamo gli ID
+			$variation_id = $p->get_id();
+			$product_id = $p->get_parent_id();
+		}
 
-			// Storicizziamo lo stock
-			$this->historyProductStock(
-				$product_id,
-				$variation_id,
-				$data['sku'],
-				$data['warehouse'] ?? '@@',
-				$this->getStockQuantity($data),
-			);
+		// Gestiamo il magazzino multiplo se abilitato
+		if ($this->config->get('products_multi_warehouse')) {
+			$this->handleMultiWarehouse($product_id, $variation_id, $data);
+		} else {
+			$this->updateSingleWarehouse($product_id, $variation_id, $data);
+		}
 
-			// Verifichiamo lo stato del prodotto
-			if (!$reference_mode) {
-				$this->status_handler->checkAndUpdateProductStatus($product_id);
-			}
+		// Storicizziamo lo stock
+		$this->historyProductStock(
+			$product_id,
+			$variation_id,
+			$data['sku'],
+			$data['warehouse'] ?? '@@',
+			$this->getStockQuantity($data),
+		);
 
-			DbHelper::commitTransaction();
-
-			return [
-				'post_id' => $product_id,
-				'variation_id' => $variation_id,
-				'new_quantity' => $this->getStockQuantity($data),
-			];
-		} catch (\Exception $e) {
-			DbHelper::rollbackTransaction();
-			throw new ISIGestSyncApiException(
-				'Errore durante l\'aggiornamento dello stock: ' . $e->getMessage(),
+		// Verifichiamo lo stato del prodotto
+		if (!$reference_mode && $this->config->get('products_disable_outofstock')) {
+			$this->status_handler->checkAndUpdateProductStatus(
+				$is_variation ? $variation_id : $product_id,
+				$is_variation,
 			);
 		}
+
+		DbHelper::commitTransaction();
+
+		return [
+			'post_id' => $product_id,
+			'variation_id' => $variation_id,
+			'new_quantity' => $this->getStockQuantity($data),
+		];
 	}
 
 	/**
@@ -112,8 +128,40 @@ class StockService extends BaseService {
 	 * @param array   $data        Dati dello stock.
 	 * @return void
 	 */
-	private function handleSingleWarehouse($product_id, $variation_id, $data) {
-		$new_quantity = $this->getStockQuantity($data);
+	public static function updateProductStock($product_id, $data) {
+		if (!self::syncEnabled()) {
+			return;
+		}
+
+		// Carichiamo il prodotto
+		$variation_id = 0;
+		$p = wc_get_product($product_id);
+		// Verifichiamo se il prodotto è una variante
+		$is_variation = $p->is_type('variation');
+
+		if ($is_variation) {
+			// Impostiamo gli ID
+			$variation_id = $p->get_id();
+			$product_id = $p->get_parent_id();
+		}
+
+		self::updateSingleWarehouse($product_id, $variation_id, $data);
+	}
+
+	/**
+	 * Gestisce l'aggiornamento stock per magazzino singolo.
+	 *
+	 * @param integer $product_id   ID del prodotto.
+	 * @param integer $variation_id ID della variante.
+	 * @param array   $data        Dati dello stock.
+	 * @return void
+	 */
+	public static function updateSingleWarehouse($product_id, $variation_id, $data) {
+		if (!self::syncEnabled()) {
+			return;
+		}
+
+		$new_quantity = self::getStockQuantity($data);
 
 		// Se è una variante, aggiorniamo quella
 		if ($variation_id) {
@@ -123,12 +171,14 @@ class StockService extends BaseService {
 				$variation->set_stock_status($new_quantity > 0 ? 'instock' : 'outofstock');
 				$variation->save();
 
+				wc_delete_product_transients($variation_id);
+
 				// Aggiorniamo il totale del prodotto padre
-				$this->updateParentProductStock($product_id);
+				self::updateParentProductStock($product_id);
 			}
 		} else {
 			$product = wc_get_product($product_id);
-			if ($product) {
+			if ($product && !$product->is_type('variable')) {
 				$product->set_stock_quantity($new_quantity);
 				$product->set_stock_status($new_quantity > 0 ? 'instock' : 'outofstock');
 				$product->save();
@@ -137,9 +187,6 @@ class StockService extends BaseService {
 
 		// Aggiorna la cache di WooCommerce
 		wc_delete_product_transients($product_id);
-		if ($variation_id) {
-			wc_delete_product_transients($variation_id);
-		}
 	}
 
 	/**
@@ -170,7 +217,7 @@ class StockService extends BaseService {
 		$total_quantity = $this->calculateTotalWarehouseQuantity($product_id, $variation_id);
 
 		// Aggiorniamo lo stock totale
-		$this->handleSingleWarehouse($product_id, $variation_id, ['quantity' => $total_quantity]);
+		$this->updateSingleWarehouse($product_id, $variation_id, ['quantity' => $total_quantity]);
 	}
 
 	/**
@@ -200,7 +247,7 @@ class StockService extends BaseService {
 	 * @param integer $product_id ID del prodotto.
 	 * @return void
 	 */
-	private function updateParentProductStock($product_id) {
+	private static function updateParentProductStock($product_id) {
 		$product = wc_get_product($product_id);
 		if (!$product || !$product->is_type('variable')) {
 			return;
@@ -259,20 +306,11 @@ class StockService extends BaseService {
 		}
 
 		$conversion = (float) $data['unit_conversion'];
-		$quantity_field = $this->getQuantityField();
+		$quantity_field = ConfigHelper::getQuantityField();
 
 		if (isset($data[$quantity_field])) {
 			$data[$quantity_field] = (int) ((float) $data[$quantity_field] * $conversion);
 		}
-	}
-
-	/**
-	 * Ottiene il campo da utilizzare per la quantità.
-	 *
-	 * @return string
-	 */
-	private function getQuantityField() {
-		return $this->config->get('products_use_stock_qty') ? 'stock_quantity' : 'salable_quantity';
 	}
 
 	/**
@@ -281,30 +319,10 @@ class StockService extends BaseService {
 	 * @param array $data Dati dello stock.
 	 * @return integer
 	 */
-	private function getStockQuantity($data) {
-		$quantity_field = $this->getQuantityField();
+	private static function getStockQuantity($data) {
+		$quantity_field = ConfigHelper::getQuantityField();
 		$quantity = isset($data[$quantity_field]) ? (int) $data[$quantity_field] : 0;
 		return max(0, $quantity);
-	}
-
-	/**
-	 * Cerca un prodotto tramite SKU.
-	 *
-	 * @param string $sku SKU da cercare.
-	 * @return array|null
-	 */
-	private function findProductBySku($sku) {
-		global $wpdb;
-
-		return $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT post_id, variation_id 
-                FROM {$wpdb->prefix}isi_api_product 
-                WHERE sku = %s",
-				$sku,
-			),
-			ARRAY_A,
-		);
 	}
 
 	/**

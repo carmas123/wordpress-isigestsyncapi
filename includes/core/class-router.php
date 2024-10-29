@@ -76,13 +76,11 @@ class Router {
 				return $this->api_handler->postProductReceived($body);
 
 			case 'GET product-image':
-				$id_product = isset($_GET['id_product']) ? (int) $_GET['id_product'] : null;
-				$variation_id = isset($_GET['id_product_attribute'])
-					? $_GET['id_product_attribute']
-					: null;
+				$post_id = isset($_GET['post_id']) ? (int) $_GET['post_id'] : null;
+				$variation_id = isset($_GET['variant_id']) ? $_GET['variant_id'] : null;
 				$id_image = isset($_GET['id_image']) ? $_GET['id_image'] : null;
 
-				return $this->api_handler->getProductImages($id_product, $variation_id);
+				return $this->api_handler->getProductImages($post_id, $variation_id);
 
 			case 'DELETE product-image':
 				$id_image = isset($_GET['id_image']) ? $_GET['id_image'] : null;
@@ -92,15 +90,15 @@ class Router {
 			case 'POST product-image':
 				return $this->api_handler->handleImage($body);
 
+			case 'POST product-stock':
+				return $this->api_handler->updateStock($body);
+
 			case 'POST product':
 				return $this->api_handler->createUpdateProduct($body);
 
 			case 'GET product':
-				$id = isset($_GET['id']) ? $_GET['id'] : null;
+				$id = $_GET['id'] ?? null;
 				return $this->api_handler->getProduct($id);
-
-			case 'POST stock':
-				return $this->api_handler->updateStock($body);
 
 			case 'POST image':
 				return $this->api_handler->handleImage($body);
@@ -257,13 +255,6 @@ class Router {
 	 */
 	protected function sendJsonNotFoundRequest() {
 		$this->sendJsonError('Not found', 404);
-	}
-
-	/**
-	 * Invia una risposta di risorsa bloccata (423)
-	 */
-	protected function sendJsonAlreadyRunning() {
-		$this->sendJsonError('Importazione già in esecuzione', 423);
 	}
 
 	function initializeWooCommerce() {
