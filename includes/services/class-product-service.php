@@ -118,8 +118,6 @@ class ProductService extends BaseService {
 			$force_disable,
 		);
 
-		DbHelper::commitTransaction();
-
 		// Ritorniamo i dati del prodotto
 		return $this->get($product->get_id());
 	}

@@ -111,8 +111,6 @@ class StockService extends BaseService {
 			);
 		}
 
-		DbHelper::commitTransaction();
-
 		return [
 			'post_id' => $product_id,
 			'variation_id' => $variation_id,
