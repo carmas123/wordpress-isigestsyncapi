@@ -758,23 +758,38 @@ class ProductService extends BaseService {
 		$categories = array_map('trim', explode('>', $category_path));
 		$parent_id = 0;
 		$final_category_id = null;
+		$full_path = '';
 
 		foreach ($categories as $category_name) {
 			if (empty($category_name)) {
 				continue;
 			}
 
-			// Cerca la categoria esistente
-			$existing_term = get_term_by('name', $category_name, 'product_cat', ARRAY_A);
+			$full_path .= ($full_path ? '>' : '') . $category_name;
 
-			if ($existing_term && $existing_term['parent'] == $parent_id) {
-				// Categoria esistente con il parent corretto
-				$category_id = $existing_term['term_id'];
-			} else {
-				// Crea nuova categoria
+			// Cerca tutte le categorie con questo nome
+			$existing_terms = get_terms([
+				'taxonomy' => 'product_cat',
+				'name' => $category_name,
+				'hide_empty' => false,
+				'parent' => $parent_id,
+			]);
+
+			if (!empty($existing_terms) && !is_wp_error($existing_terms)) {
+				// Verifica se una delle categorie trovate corrisponde al percorso completo
+				foreach ($existing_terms as $term) {
+					if ($this->validateCategoryPath($term->term_id, $full_path)) {
+						$category_id = $term->term_id;
+						break;
+					}
+				}
+			}
+
+			// Se non è stata trovata una categoria valida, creane una nuova
+			if (empty($category_id)) {
 				$result = wp_insert_term($category_name, 'product_cat', [
 					'parent' => $parent_id,
-					'slug' => sanitize_title($category_name),
+					'slug' => sanitize_title($category_name . '-' . uniqid()), // Slug unico
 				]);
 
 				if (is_wp_error($result)) {
@@ -785,7 +800,6 @@ class ProductService extends BaseService {
 					);
 					return null;
 				}
-
 				$category_id = $result['term_id'];
 			}
 
@@ -793,20 +807,33 @@ class ProductService extends BaseService {
 			$final_category_id = $category_id;
 		}
 
-		// Se è stata creata/trovata almeno una categoria
 		if ($final_category_id) {
-			// Assicuriamoci che la categoria sia pubblicata
 			wp_update_term($final_category_id, 'product_cat', [
 				'name' => end($categories),
 			]);
-
-			// Puliamo la cache
 			clean_term_cache($final_category_id, 'product_cat');
-
 			return $final_category_id;
 		}
 
 		return null;
+	}
+
+	// Funzione helper per validare il percorso completo di una categoria
+	private function validateCategoryPath($term_id, $expected_path) {
+		$actual_path = '';
+		$current_term_id = $term_id;
+
+		while ($current_term_id) {
+			$term = get_term($current_term_id, 'product_cat');
+			if (is_wp_error($term)) {
+				return false;
+			}
+
+			$actual_path = $term->name . ($actual_path ? '>' . $actual_path : '');
+			$current_term_id = $term->parent;
+		}
+
+		return $actual_path === $expected_path;
 	}
 
 	private function updateProductAttributes($product, $attributes) {
