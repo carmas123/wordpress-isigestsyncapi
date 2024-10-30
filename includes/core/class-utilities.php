@@ -196,6 +196,16 @@ class Utilities {
 	}
 
 	/**
+	 * Log di un errore.
+	 *
+	 * @param mixed  $message Il messaggio.
+	 * @return void
+	 */
+	public static function logError($message): void {
+		self::log($message, 'error');
+	}
+
+	/**
 	 * Verifica se è attiva la modalità debug.
 	 *
 	 * @return boolean

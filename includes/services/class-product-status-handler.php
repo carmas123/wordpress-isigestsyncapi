@@ -175,6 +175,11 @@ class ProductStatusHandler extends BaseService {
 	 * @return boolean
 	 */
 	public static function shouldProductBeActive($product) {
+		if ($product->is_type('variable')) {
+			// La disattivazione viene eseguita solo per le varianti o prodotti semplici
+			return true;
+		}
+
 		// Controllo immagine
 		if (
 			ConfigHelper::getInstance()->get('products_disable_without_image') &&

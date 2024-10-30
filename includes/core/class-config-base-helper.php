@@ -36,6 +36,9 @@ abstract class ConfigBaseHelper {
 	 * @var array
 	 */
 	private $boolean_fields = [
+		// Categorie
+		'categories_disable_empty',
+
 		// Prodotti
 		'products_disable_outofstock',
 		'products_disable_without_image',
@@ -164,6 +167,9 @@ abstract class ConfigBaseHelper {
 		$defaults = [
 			// API
 			'api_key' => $this->generate_api_key(),
+
+			// Categorie
+			'categories_disable_empty' => false,
 
 			// Prodotti
 			'products_disable_outofstock' => true,

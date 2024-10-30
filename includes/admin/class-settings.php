@@ -199,6 +199,7 @@ class Settings {
 				],
 				'tabs' => [
 					'general' => __('Generale', 'isigestsyncapi'),
+					'categories' => __('Categorie', 'isigestsyncapi'),
 					'products' => __('Prodotti', 'isigestsyncapi'),
 					'products_dont_sync' => __('Prodotti (Blocca aggiornamento)', 'isigestsyncapi'),
 					'sizesandcolors' => __('Taglie e Colori', 'isigestsyncapi'),
@@ -213,6 +214,15 @@ class Settings {
 						'Autenticazione',
 						'Chiave di autenticazione da utilizzare in ISIGest per consentile la sincronizzazione dei dati',
 						true,
+					),
+
+					// Categorie
+					$this->buildCheckbox(
+						'categories_disable_empty',
+						'Disattiva automaticamente',
+						'categories',
+						'Disattivazione',
+						'Disattiva automaticamente le categorie vuote',
 					),
 
 					// Prodotti
