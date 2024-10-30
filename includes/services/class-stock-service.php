@@ -205,10 +205,9 @@ class StockService extends BaseService {
 		$wpdb->replace($wpdb->prefix . 'isi_api_warehouse', [
 			'post_id' => $product_id,
 			'variation_id' => $variation_id,
-			'warehouse_code' => $warehouse,
+			'warehouse' => $warehouse,
 			'stock_quantity' => $new_quantity,
 			'stock_status' => $new_quantity > 0 ? 'instock' : 'outofstock',
-			'updated_at' => current_time('mysql'),
 		]);
 
 		// Calcoliamo il totale di tutti i magazzini
@@ -288,7 +287,6 @@ class StockService extends BaseService {
 			'warehouse' => $warehouse,
 			'stock_quantity' => $quantity,
 			'stock_status' => $quantity > 0 ? 'instock' : 'outofstock',
-			'updated_at' => current_time('mysql'),
 		]);
 	}
 

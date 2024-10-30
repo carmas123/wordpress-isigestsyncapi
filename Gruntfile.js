@@ -30,6 +30,7 @@ module.exports = function (grunt) {
 							'!Gruntfile.js',
 							'!package.json',
 							'!package-lock.json',
+							'!pnpm-lock.yaml',
 							'!phpcs.xml',
 							'!phpunit.xml',
 							'!composer.json',
@@ -38,7 +39,9 @@ module.exports = function (grunt) {
 							'!.editorconfig',
 							'!.eslintrc',
 							'!README.md',
-							'!CHANGELOG.md'
+							'!CHANGELOG.md',
+							'!.php-cs-fixer.php',
+							'!php-cs-fixer.php'
 						],
 						dest: 'build/'
 					}

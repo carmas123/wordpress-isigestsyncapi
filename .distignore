@@ -41,3 +41,6 @@ node_modules
 *.sql
 *.tar.gz
 *.zip
+pnpm-lock.yaml
+.php-cs-fixer.php
+php-cs-fixer.php
