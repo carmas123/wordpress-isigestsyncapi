@@ -1,6 +1,6 @@
 {
 	"name": "isigestsyncapi",
-	"version": "1.0.0",
+	"version": "1.0.3",
 	"description": "Plugin per la sincronizzazione dei dati di ISIGest tramite API",
 	"author": "ISIGest S.r.l.",
 	"main": "Gruntfile.js",
@@ -15,7 +15,13 @@
 		"lint": "eslint \"**/*.js\" --ignore-pattern 'vendor/**' --ignore-pattern 'node_modules/**'",
 		"lint:fix": "eslint --fix \"**/*.js\" --ignore-pattern 'vendor/**' --ignore-pattern 'node_modules/**'",
 		"format:php": "php-cs-fixer fix --config=.php-cs-fixer.php",
-		"format:check:php": "php-cs-fixer fix --config=.php-cs-fixer.php --dry-run --diff"
+		"format:check:php": "php-cs-fixer fix --config=.php-cs-fixer.php --dry-run --diff",
+		"version:patch": "node ./tools/update-version.js patch",
+		"version:minor": "node ./tools/update-version.js minor",
+		"version:major": "node ./tools/update-version.js major",
+		"release:patch": "pnpm version:patch && pnpm package",
+		"release:minor": "pnpm version:minor && pnpm package",
+		"release:major": "pnpm version:major && pnpm package"
 	},
 	"devDependencies": {
 		"@prettier/plugin-php": "^0.19.7",

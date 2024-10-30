@@ -44,3 +44,4 @@ node_modules
 pnpm-lock.yaml
 .php-cs-fixer.php
 php-cs-fixer.php
+tools/**

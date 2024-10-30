@@ -24,6 +24,7 @@ module.exports = function (grunt) {
 							'!node_modules/**',
 							'!build/**',
 							'!release/**',
+							'!tools/**',
 							'!.git/**',
 							'!.github/**',
 							'!tests/**',

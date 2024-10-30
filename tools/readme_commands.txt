@@ -1,11 +1,18 @@
-# Sviluppo (watch per cambiamenti)
-npm run watch
+# *** ULTIMI ***
+# Incrementa la versione PATCH
+pnpm run version:patch
 
-# Build del progetto
-npm run build
+# Incrementa la versione MINOR
+pnpm run version:minor
 
-# Crea pacchetto di rilascio
-npm run package
+# Incrementa la versione MAJOR
+pnpm run version:major
 
-# Genera file di traduzione
-npm run makepot
+# Incrementa e Crea nuova Release PATCH
+pnpm run release:patch
+
+# Incrementa e Crea nuova Release MINOR
+pnpm run release:minor
+
+# Incrementa e Crea nuova Release MAJOR
+pnpm run release:major

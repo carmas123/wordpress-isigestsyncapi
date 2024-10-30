@@ -39,6 +39,13 @@ class ProductService extends BaseService {
 	private $prices_with_tax = true;
 
 	/**
+	 * Prefisso per i campi avanzati
+	 *
+	 * @var string
+	 */
+	private const ADVANCED_FIELD_PREFIX = 'af_';
+
+	/**
 	 * Costruttore.
 	 */
 	public function __construct() {
@@ -259,6 +266,96 @@ class ProductService extends BaseService {
 		) {
 			$this->updateProductCategories($product, $data['categories']);
 		}
+
+		// Gestione dei campi aggiuntivi
+		$this->updateAdvancedFields($product, $data);
+	}
+
+	/**
+	 * Aggiorna i campi aggiuntivi di un prodotto.
+	 *
+	 * @param \WC_Product $product Il prodotto da aggiornare.
+	 * @param array       $data    I dati da aggiornare.
+	 * @return void
+	 */
+	private function updateAdvancedFields($product, $data) {
+		$features = $data['features'] ?? [];
+
+		// Se features è una stringa JSON, decodificala
+		if (is_string($features)) {
+			$features = json_decode($features, true);
+		}
+
+		if (!is_array($features)) {
+			return;
+		}
+
+		// Processo ogni feature
+		foreach ($features as $feature) {
+			if (empty($feature['name']) || !isset($feature['value'])) {
+				continue;
+			}
+
+			// Costruisci la chiave del meta con il prefisso
+			$meta_key = self::ADVANCED_FIELD_PREFIX . sanitize_title($feature['name']);
+			$value = $feature['value'];
+
+			// Se il valore è un array, convertilo in JSON
+			if (is_array($value)) {
+				$value = wp_json_encode($value);
+			}
+
+			// Salva il meta
+			update_post_meta($product->get_id(), $meta_key, sanitize_text_field($value));
+		}
+	}
+
+	/**
+	 * Recupera i campi avanzati di un prodotto.
+	 *
+	 * @param integer $product_id ID del prodotto.
+	 * @return array Array delle features.
+	 */
+	private function getAdvancedFields($product_id) {
+		global $wpdb;
+
+		// Recupera tutti i meta che iniziano con af_
+		$meta_data = $wpdb->get_results(
+			$wpdb->prepare(
+				"
+            SELECT meta_key, meta_value 
+            FROM {$wpdb->postmeta} 
+            WHERE post_id = %d 
+            AND meta_key LIKE %s",
+				$product_id,
+				self::ADVANCED_FIELD_PREFIX . '%',
+			),
+		);
+
+		$features = [];
+
+		foreach ($meta_data as $meta) {
+			// Rimuovi il prefisso af_ per ottenere il nome originale
+			$name = substr($meta->meta_key, strlen(self::ADVANCED_FIELD_PREFIX));
+
+			// Verifica se il valore è JSON
+			$value = json_decode($meta->meta_value, true);
+			if (json_last_error() === JSON_ERROR_NONE) {
+				// Se è JSON valido, usa il valore decodificato
+				$features[] = [
+					'name' => ucwords(str_replace('-', ' ', $name)),
+					'value' => $value,
+				];
+			} else {
+				// Altrimenti usa il valore originale
+				$features[] = [
+					'name' => ucwords(str_replace('-', ' ', $name)),
+					'value' => $meta->meta_value,
+				];
+			}
+		}
+
+		return $features;
 	}
 
 	private function extractName($body) {

@@ -1,0 +1,120 @@
+/* Contenitore principale */
+.isi-features-wrapper {
+	padding: 14px 24px 24px; /* Aumentato padding generale */
+}
+
+/* Notice di sincronizzazione */
+.isi-sync-notice {
+	background: #f8f9fa;
+	border-left: 4px solid #007cba;
+	padding: 16px 20px;
+	margin: 0 0 24px 0; /* Aumentato il margine bottom */
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.isi-sync-notice p {
+	margin: 0;
+	color: #1e1e1e;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+/* Messaggio nessuna caratteristica */
+.isi-no-features {
+	padding: 40px 20px; /* Aumentato padding verticale */
+	text-align: center;
+	color: #666;
+	font-style: italic;
+	background: #fff;
+	border: 1px solid #ccd0d4;
+	border-radius: 3px;
+}
+
+/* Tabella caratteristiche */
+.isi-features-table {
+	background: #fff;
+	border: 1px solid #ccd0d4;
+	border-collapse: separate; /* Cambiato da collapse a separate */
+	border-spacing: 0;
+	width: 100%;
+	border-radius: 3px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Header tabella */
+.isi-features-table thead th {
+	background: #f8f9fa;
+	font-weight: 600;
+	text-align: left;
+	border-bottom: 2px solid #ddd; /* Bordo più spesso per l'header */
+	padding: 16px 20px; /* Aumentato padding */
+	color: #23282d;
+}
+
+/* Celle tabella */
+.isi-features-table td {
+	padding: 16px 20px; /* Aumentato padding */
+	border-bottom: 1px solid #eee;
+	vertical-align: middle;
+}
+
+/* Colonna nome */
+.isi-feature-name {
+	width: 35%;
+	background: #f8f9fa;
+}
+
+/* Colonna valore */
+.isi-feature-value {
+	width: 65%;
+}
+
+/* Label e testo valore */
+.isi-feature-label,
+.isi-feature-value-text {
+	display: block;
+	line-height: 1.6; /* Aumentato line-height */
+	padding: 0; /* Rimosso padding extra poiché già gestito dalla cella */
+}
+
+.isi-feature-label {
+	font-weight: 600;
+	color: #23282d;
+}
+
+.isi-feature-value-text {
+	color: #666;
+}
+
+/* Hover effetti */
+.isi-features-table tbody tr:hover {
+	background-color: #f7f7f7;
+}
+
+.isi-features-table tbody tr:hover .isi-feature-name {
+	background-color: #f0f0f1;
+}
+
+/* Ultima riga senza bordo bottom */
+.isi-features-table tbody tr:last-child td {
+	border-bottom: none;
+}
+
+/* Prima colonna con bordo arrotondato */
+.isi-features-table thead th:first-child {
+	border-top-left-radius: 3px;
+}
+
+/* Ultima colonna con bordo arrotondato */
+.isi-features-table thead th:last-child {
+	border-top-right-radius: 3px;
+}
+
+/* Arrotondamento bordi inferiori */
+.isi-features-table tbody tr:last-child td:first-child {
+	border-bottom-left-radius: 3px;
+}
+
+.isi-features-table tbody tr:last-child td:last-child {
+	border-bottom-right-radius: 3px;
+}
