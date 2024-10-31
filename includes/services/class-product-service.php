@@ -741,6 +741,12 @@ class ProductService extends BaseService {
 				continue;
 			}
 
+			// Rimuoviamo gli spazi iniziali e finali
+			$category_name = trim($category_name);
+
+			// Azzeriamo il Category Id (Importante altrimenti potrebbe rimanere quello del padre)
+			$category_id = 0;
+
 			$full_path .= ($full_path ? '>' : '') . $category_name;
 
 			// Cerca tutte le categorie con questo nome
@@ -765,7 +771,6 @@ class ProductService extends BaseService {
 			if (empty($category_id)) {
 				$result = wp_insert_term($category_name, 'product_cat', [
 					'parent' => $parent_id,
-					'slug' => sanitize_title($category_name . '-' . uniqid()), // Slug unico
 				]);
 
 				if (is_wp_error($result)) {
@@ -784,10 +789,6 @@ class ProductService extends BaseService {
 		}
 
 		if ($final_category_id) {
-			wp_update_term($final_category_id, 'product_cat', [
-				'name' => end($categories),
-			]);
-			clean_term_cache($final_category_id, 'product_cat');
 			return $final_category_id;
 		}
 
