@@ -180,13 +180,8 @@ abstract class ConfigBaseHelper {
 			'products_price_withtax' => true,
 			'products_round_net_price' => false,
 			'products_reference_mode' => false,
-			'products_brand_key' => 'marca',
-			'products_reference_key' => 'reference',
-			'products_featured_key' => 'in-evidenza',
 
 			// Taglie&Colori
-			'sizeandcolor_size_key' => 'taglia',
-			'sizeandcolor_color_key' => 'colore',
 
 			// Descrizioni
 			'products_name' => 0,
