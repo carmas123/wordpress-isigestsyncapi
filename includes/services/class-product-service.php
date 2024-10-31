@@ -10,8 +10,10 @@
 
 namespace ISIGestSyncAPI\Services;
 
+use ISIGestSyncAPI\Admin\ProductAdvancedFields;
 use ISIGestSyncAPI\Core\ConfigHelper;
 use ISIGestSyncAPI\Core\DbHelper;
+use ISIGestSyncAPI\Core\ProductAttribute;
 use ISIGestSyncAPI\Services\BaseService;
 use ISIGestSyncAPI\Core\Utilities;
 use ISIGestSyncAPI\Core\ISIGestSyncApiException;
@@ -100,9 +102,11 @@ class ProductService extends BaseService {
 		// Aggiorniamo i dati base del prodotto
 		$this->updateBasicProductData($product, $data);
 
+		// Aggiorniamo le Varianti e gli Attributi
+		$this->handleVariantsAndAttributes($product, $data);
+
 		// Gestione varianti
 		if ($use_attributes) {
-			$this->handleVariants($product, $data);
 			$this->updateParentPriceMeta($product);
 		}
 
@@ -241,24 +245,6 @@ class ProductService extends BaseService {
 		// i dati successivi non verranno assegnati correttamente
 		$product->save();
 
-		// Marca (Brand)
-		if (
-			!$this->config->get('products_dont_sync_brand', false) &&
-			isset($data['brand']) &&
-			isset($data['brand']['name'])
-		) {
-			$this->updateProductBrand($product, $data['brand']['name']);
-		}
-
-		// Codice a barre
-		if (!$this->config->get('products_dont_sync_ean', false) && isset($data['ean13'])) {
-			update_post_meta(
-				$product->get_id(),
-				ConfigHelper::getBarcodeMetaKey(),
-				sanitize_text_field($data['ean13']),
-			);
-		}
-
 		// Categorie
 		if (
 			!$this->config->get('products_dont_sync_categories', false) &&
@@ -268,94 +254,16 @@ class ProductService extends BaseService {
 		}
 
 		// Gestione dei campi aggiuntivi
-		$this->updateAdvancedFields($product, $data);
-	}
-
-	/**
-	 * Aggiorna i campi aggiuntivi di un prodotto.
-	 *
-	 * @param \WC_Product $product Il prodotto da aggiornare.
-	 * @param array       $data    I dati da aggiornare.
-	 * @return void
-	 */
-	private function updateAdvancedFields($product, $data) {
-		$features = $data['features'] ?? [];
-
-		// Se features è una stringa JSON, decodificala
-		if (is_string($features)) {
-			$features = json_decode($features, true);
-		}
-
-		if (!is_array($features)) {
-			return;
-		}
-
-		// Processo ogni feature
-		foreach ($features as $feature) {
-			if (empty($feature['name']) || !isset($feature['value'])) {
-				continue;
-			}
-
-			// Costruisci la chiave del meta con il prefisso
-			$meta_key = self::ADVANCED_FIELD_PREFIX . sanitize_title($feature['name']);
-			$value = $feature['value'];
-
-			// Se il valore è un array, convertilo in JSON
-			if (is_array($value)) {
-				$value = wp_json_encode($value);
-			}
-
-			// Salva il meta
-			update_post_meta($product->get_id(), $meta_key, sanitize_text_field($value));
-		}
-	}
-
-	/**
-	 * Recupera i campi avanzati di un prodotto.
-	 *
-	 * @param integer $product_id ID del prodotto.
-	 * @return array Array delle features.
-	 */
-	private function getAdvancedFields($product_id) {
-		global $wpdb;
-
-		// Recupera tutti i meta che iniziano con af_
-		$meta_data = $wpdb->get_results(
-			$wpdb->prepare(
-				"
-            SELECT meta_key, meta_value 
-            FROM {$wpdb->postmeta} 
-            WHERE post_id = %d 
-            AND meta_key LIKE %s",
-				$product_id,
-				self::ADVANCED_FIELD_PREFIX . '%',
-			),
+		$feat = array_merge(
+			[
+				[
+					'name' => 'In evidenza',
+					'type' => $data['isigest']['featured'] === 'yes' ? 'Si' : 'No',
+				],
+			],
+			$data['features'] ?? [],
 		);
-
-		$features = [];
-
-		foreach ($meta_data as $meta) {
-			// Rimuovi il prefisso af_ per ottenere il nome originale
-			$name = substr($meta->meta_key, strlen(self::ADVANCED_FIELD_PREFIX));
-
-			// Verifica se il valore è JSON
-			$value = json_decode($meta->meta_value, true);
-			if (json_last_error() === JSON_ERROR_NONE) {
-				// Se è JSON valido, usa il valore decodificato
-				$features[] = [
-					'name' => ucwords(str_replace('-', ' ', $name)),
-					'value' => $value,
-				];
-			} else {
-				// Altrimenti usa il valore originale
-				$features[] = [
-					'name' => ucwords(str_replace('-', ' ', $name)),
-					'value' => $meta->meta_value,
-				];
-			}
-		}
-
-		return $features;
+		// ProductAdvancedFields::syncProductAttributes($product->get_id(), $feat);
 	}
 
 	private function extractName($body) {
@@ -696,8 +604,16 @@ class ProductService extends BaseService {
 		$attributes = [];
 
 		if ($is_tc) {
-			$attributes[ConfigHelper::getSizeAndColorSizeKey()] = $variant['size_name'];
-			$attributes[ConfigHelper::getSizeAndColorColorKey()] = $variant['color_name'];
+			$attributes[ConfigHelper::getSizeAndColorSizeKey()] = [
+				'variant' => true,
+				'label' => 'Taglia',
+				'value' => $variant['size_name'],
+			];
+			$attributes[ConfigHelper::getSizeAndColorColorKey()] = [
+				'variant' => true,
+				'label' => 'Colore',
+				'value' => $variant['color_name'],
+			];
 		} else {
 			// Attributi standard
 			for ($i = 1; $i <= 3; $i++) {
@@ -705,8 +621,13 @@ class ProductService extends BaseService {
 				$value_key = "variant_value$i";
 
 				if (!empty($variant[$type_key]) && !empty($variant[$value_key])) {
-					$attr_name = sanitize_title($variant[$type_key]);
-					$attributes["pa_$attr_name"] = $variant[$value_key];
+					$attr_label = $variant[$type_key];
+					$attr_name = wc_attribute_taxonomy_name($attr_label);
+					$attributes[$attr_name] = [
+						'variant' => true,
+						'label' => $attr_label,
+						'value' => $variant[$value_key],
+					];
 				}
 			}
 		}
@@ -715,59 +636,30 @@ class ProductService extends BaseService {
 	}
 
 	/**
-	 * Ottiene o crea un attributo
+	 * Prepara gli attributi di tipo funzionalità per un prodotto.
 	 *
-	 * @param string $name Nome dell'attributo
-	 * @return int
-	 */
-	private function getOrCreateAttribute($name) {
-		global $wpdb;
-
-		$attribute_name = wc_sanitize_taxonomy_name($name);
-		$attribute_label = ucfirst($name);
-
-		$attribute_id = wc_attribute_taxonomy_id_by_name($attribute_name);
-
-		if (!$attribute_id) {
-			$attribute_id = wc_create_attribute([
-				'name' => $attribute_label,
-				'slug' => $attribute_name,
-				'type' => 'select',
-				'order_by' => 'menu_order',
-				'has_archives' => false,
-			]);
-
-			if (is_wp_error($attribute_id)) {
-				throw new ISIGestSyncApiException(
-					"Errore nella creazione dell'attributo: " . $attribute_id->get_error_message(),
-				);
-			}
-		}
-
-		return $attribute_id;
-	}
-
-	/**
-	 * Ottiene o crea un termine per un attributo
+	 * Questo metodo crea un array di attributi per una singola funzionalità del prodotto.
+	 * Può essere utilizzato per attributi che non sono varianti, come ad esempio la marca o altre caratteristiche fisse.
 	 *
-	 * @param string $value           Valore del termine
-	 * @param string $attribute_name  Nome dell'attributo
-	 * @return \WP_Term|null
+	 * @param string $value Il valore dell'attributo.
+	 * @param string $label L'etichetta dell'attributo.
+	 * @param string|null $key La chiave dell'attributo. Se non specificata, verrà generata dal label.
+	 *
+	 * @return array Un array contenente l'attributo preparato.
 	 */
-	private function getOrCreateTerm($value, $attribute_name) {
-		$term = get_term_by('name', $value, $attribute_name);
+	private function prepareFeatureAttributes($value, $label, $key = null) {
+		$attributes = [];
 
-		if (!$term) {
-			$result = wp_insert_term($value, $attribute_name);
-			if (is_wp_error($result)) {
-				throw new ISIGestSyncApiException(
-					'Errore nella creazione del termine: ' . $result->get_error_message(),
-				);
-			}
-			$term = get_term($result['term_id'], $attribute_name);
-		}
+		// Impostiamo la chiave
+		$key ??= wc_attribute_taxonomy_name($label);
 
-		return $term;
+		$attributes[$key] = [
+			'variant' => false,
+			'label' => $label,
+			'value' => $value,
+		];
+
+		return $attributes;
 	}
 
 	/**
@@ -825,19 +717,6 @@ class ProductService extends BaseService {
 					'slug' => sanitize_title($attribute_value),
 					'taxonomy' => '',
 				];
-			}
-		}
-
-		// Gestione speciale per Taglie e Colori se abilitato
-		if ($this->config->get('TC_ENABLED')) {
-			$size_attribute = $this->config->get('TC_SIZE_ATTRIBUTE');
-			$color_attribute = $this->config->get('TC_COLOR_ATTRIBUTE');
-
-			if (!empty($size_attribute) && isset($attributes['pa_' . $size_attribute])) {
-				$attributes['size'] = $attributes['pa_' . $size_attribute];
-			}
-			if (!empty($color_attribute) && isset($attributes['pa_' . $color_attribute])) {
-				$attributes['color'] = $attributes['pa_' . $color_attribute];
 			}
 		}
 
@@ -933,73 +812,79 @@ class ProductService extends BaseService {
 		return $actual_path === $expected_path;
 	}
 
-	private function updateProductAttributes($product, $attributes) {
+	/**
+	 * Aggiorna gli attributi di un prodotto.
+	 *
+	 * Questa funzione crea o aggiorna gli attributi di un prodotto WooCommerce.
+	 * Gestisce la creazione di attributi globali, l'assegnazione di termini
+	 * e l'impostazione degli attributi sul prodotto.
+	 *
+	 * @param \WC_Product $product      Il prodotto WooCommerce da aggiornare.
+	 * @param array      $attributes   Un array di attributi da aggiungere o aggiornare.
+	 * @param bool       $has_archives Indica se gli attributi devono avere archivi.
+	 *
+	 * @return void
+	 */
+	private function updateProductAttributes($product, $attributes, $has_archives = true) {
 		$product_attributes = [];
+		$processed_attributes = [];
 
-		foreach ($attributes as $name => $values) {
-			// Rimuovi duplicati e ordina
-			$values = array_unique($values);
-			sort($values);
-
-			// Crea l'attributo globale
-			$attribute_name = wc_attribute_taxonomy_name($name);
-
-			if (!taxonomy_exists($attribute_name)) {
-				wc_create_attribute([
-					'name' => ucfirst($name),
-					'slug' => $name,
-					'type' => 'select',
-					'order_by' => 'menu_order',
-					'has_archives' => false,
-				]);
-
-				// Registra la tassonomia
-				register_taxonomy($attribute_name, 'product', [
-					'hierarchical' => false,
-					'label' => ucfirst($name),
-					'query_var' => true,
-					'rewrite' => ['slug' => $name],
-				]);
+		// Riorganizza l'array degli attributi
+		foreach ($attributes as $item) {
+			foreach ($item as $key => $value) {
+				if (!isset($processed_attributes[$key])) {
+					$processed_attributes[$key] = [
+						'label' => $value['label'],
+						'variant' => $value['variant'] ? 1 : 0,
+					];
+					$processed_attributes[$key]['values'] = [];
+				}
+				$processed_attributes[$key]['values'][] = $value['value'];
 			}
+		}
 
-			// Crea i termini e assegnali al prodotto
+		foreach ($processed_attributes as $name => $values) {
+			// Verifichiamo l'esistenza dell'attributo
+			ProductAttribute::getOrCreateAttribute($name, $values['label'], $has_archives);
+
 			$term_ids = [];
-			foreach ($values as $value) {
-				$term = get_term_by('name', $value, $attribute_name);
-				if (!$term) {
-					$term = wp_insert_term($value, $attribute_name);
-					if (!is_wp_error($term)) {
-						$term_ids[] = $term['term_id'];
-					}
-				} else {
+			foreach ($values['values'] as $value) {
+				$term = ProductAttribute::getOrCreateTerm($value, $name);
+				if ($term) {
 					$term_ids[] = $term->term_id;
 				}
 			}
 
-			// Assegna i termini al prodotto
 			if (!empty($term_ids)) {
-				wp_set_object_terms($product->get_id(), $term_ids, $attribute_name);
-			}
+				wp_set_object_terms($product->get_id(), $term_ids, $name);
 
-			// Aggiungi alla lista degli attributi del prodotto
-			$product_attributes[$attribute_name] = [
-				'name' => $attribute_name,
-				'value' => '', // per attributi tassonomici
-				'position' => 0,
-				'is_visible' => 1,
-				'is_variation' => 1,
-				'is_taxonomy' => 1,
-			];
+				// Formattiamo gli attributi secondo la documentazione
+				$attribute = new \WC_Product_Attribute();
+				$attribute->set_id(wc_attribute_taxonomy_id_by_name($name));
+				$attribute->set_name($name);
+				$attribute->set_options($term_ids);
+				$attribute->set_position(array_search($name, array_keys($processed_attributes)));
+				$attribute->set_visible(true);
+				$attribute->set_variation((bool) $values['variant']);
+
+				$product_attributes[] = $attribute;
+			}
 		}
 
-		// Imposta il prodotto come variabile
-		wp_set_object_terms($product->get_id(), 'variable', 'product_type');
-
-		// Salva gli attributi
-		update_post_meta($product->get_id(), '_product_attributes', $product_attributes);
+		if (!empty($product_attributes)) {
+			wp_set_object_terms($product->get_id(), 'variable', 'product_type');
+			$product->set_attributes($product_attributes);
+			$product->save();
+		}
 	}
 
-	private function handleVariants($product, $data) {
+	private function handleVariantsAndAttributes($product, $data) {
+		// Verifichiamo se il prodotto è una variabile
+		$is_variable =
+			isset($data['attributes']) &&
+			is_array($data['attributes']) &&
+			!empty($data['attributes']);
+
 		// Convertiamo il prodotto in variabile se non lo è già
 		if (!$product->is_type('variable')) {
 			$product_variable = new \WC_Product_Variable($product->get_id());
@@ -1016,26 +901,8 @@ class ProductService extends BaseService {
 
 		// Raccogliamo tutti i valori degli attributi
 		foreach ($data['attributes'] as $variant) {
-			// Gestione attributi standard o taglie/colori
-			if ((bool) $isigest['is_tc']) {
-				if (!empty($variant['size_name'])) {
-					$attributes[ConfigHelper::getSizeAndColorSizeKey()][] = $variant['size_name'];
-				}
-				if (!empty($variant['color_name'])) {
-					$attributes[ConfigHelper::getSizeAndColorColorKey()][] = $variant['color_name'];
-				}
-			} else {
-				// Gestione attributi standard
-				for ($i = 1; $i <= 3; $i++) {
-					$type_key = "variant_type$i";
-					$value_key = "variant_value$i";
-
-					if (!empty($variant[$type_key]) && !empty($variant[$value_key])) {
-						$attr_name = sanitize_title($variant[$type_key]);
-						$attributes[$attr_name][] = $variant[$value_key];
-					}
-				}
-			}
+			// Prepariamo gli attributi della variante
+			$attributes[] = $this->prepareVariationAttributes($variant, (bool) $isigest['is_tc']);
 
 			// Prepariamo i dati della variante
 			if (!empty($variant['sku'])) {
@@ -1043,14 +910,81 @@ class ProductService extends BaseService {
 			}
 		}
 
-		// Creiamo o aggiorniamo gli attributi
-		$this->updateProductAttributes($product, $attributes);
+		// Aggiungiamo altri Attributi
+
+		// Marca (Brand)
+		$this->handleMarca($attributes, $data);
+
+		// Codice Produttore
+		$this->handleReference($attributes, $data);
+
+		// Flag In Evidenza
+		$this->handleInEvidenza($attributes, $data);
 
 		// Salviamo il prodotto dopo aver impostato gli attributi
 		$product->save();
 
+		// Creiamo o aggiorniamo gli attributi
+		$this->updateProductAttributes($product, $attributes);
+
+		// Codice a barre
+		$this->handleBarcode($product->get_id(), $data);
+
 		// Creiamo o aggiorniamo le variazioni
 		$this->updateProductVariations($product, $variations, $isigest);
+	}
+
+	private function handleMarca(&$attributes, $data) {
+		if (
+			!$this->config->get('products_dont_sync_brand', false) &&
+			isset($data['brand']) &&
+			isset($data['brand']['name']) &&
+			!empty($data['brand']['name'])
+		) {
+			$attributes[] = $this->prepareFeatureAttributes(
+				$data['brand']['name'],
+				'Marca',
+				ConfigHelper::getBrandMetaKey(),
+			);
+		}
+	}
+
+	private function handleReference(&$attributes, $data) {
+		if (
+			!$this->config->get('products_dont_sync_reference', false) &&
+			isset($data['reference']) &&
+			!empty($data['reference'])
+		) {
+			$attributes[] = $this->prepareFeatureAttributes(
+				$data['reference'],
+				'Codice Produttore',
+				ConfigHelper::getReferenceMetaKey(),
+			);
+		}
+	}
+
+	private function handleBarcode($post_id, $data) {
+		if (
+			!$this->config->get('products_dont_sync_ean', false) &&
+			isset($data['ean13']) &&
+			!empty($data['ean13'])
+		) {
+			update_post_meta(
+				$post_id,
+				ConfigHelper::getBarcodeMetaKey(),
+				sanitize_text_field($data['ean13']),
+			);
+		}
+	}
+
+	private function handleInEvidenza(&$attributes, $data) {
+		if (!$this->config->get('products_dont_sync_featured_flag', false)) {
+			$attributes[] = $this->prepareFeatureAttributes(
+				$data['isigest']['featured'] ? 'Si' : 'No',
+				'In Evidenza',
+				ConfigHelper::getInEvidenzaMetaKey(),
+			);
+		}
 	}
 
 	private function updateProductVariations($product, $variations, $isigest) {
@@ -1071,7 +1005,8 @@ class ProductService extends BaseService {
 			// Impostiamo il parent
 			$variation->set_parent_id($product->get_id());
 
-			$this->updateVariationData($variation, $variant);
+			// Aggiorniamo i dati della variante
+			$this->updateVariationData($variation, $variant, (bool) $isigest['is_tc']);
 
 			$variation->save();
 
@@ -1099,7 +1034,7 @@ class ProductService extends BaseService {
 		$this->updateDefaultVariant($product->get_id());
 	}
 
-	private function updateVariationData($variation, $data) {
+	private function updateVariationData($variation, $data, $is_tc) {
 		// Imposta SKU
 		$variation->set_sku($data['sku']);
 
@@ -1113,94 +1048,32 @@ class ProductService extends BaseService {
 		StockService::updateProductStock($variation->get_id(), $data);
 
 		// Codice a barre
-		if (!$this->config->get('products_dont_sync_ean', false) && isset($data['ean13'])) {
-			update_post_meta(
-				$variation->get_id(),
-				ConfigHelper::getBarcodeMetaKey(),
-				sanitize_text_field($data['ean13']),
-			);
-		}
+		$this->handleBarcode($variation->get_id(), $data);
 
 		// Imposta attributi
 		$attributes = [];
-		if ($this->config->get('TC_ENABLED')) {
+		if ($is_tc) {
 			if (!empty($data['size_name'])) {
-				$attributes['pa_taglia'] = $data['size_name'];
+				$attributes[ConfigHelper::getSizeAndColorSizeKey()] = $data['size_name'];
 			}
 			if (!empty($data['color_name'])) {
-				$attributes['pa_colore'] = $data['color_name'];
+				$attributes[ConfigHelper::getSizeAndColorColorKey()] = $data['color_name'];
 			}
-		}
+		} else {
+			// Attributi standard
+			for ($i = 1; $i <= 3; $i++) {
+				$type_key = "variant_type$i";
+				$value_key = "variant_value$i";
 
-		// Attributi standard
-		for ($i = 1; $i <= 3; $i++) {
-			$type_key = "variant_type$i";
-			$value_key = "variant_value$i";
-			if (!empty($data[$type_key]) && !empty($data[$value_key])) {
-				$attr_name = 'pa_' . sanitize_title($data[$type_key]);
-				$attributes[$attr_name] = $data[$value_key];
+				if (!empty($data[$type_key]) && !empty($data[$value_key])) {
+					$attr_label = $data[$type_key];
+					$attr_name = wc_attribute_taxonomy_name($attr_label);
+					$attributes[$attr_name] = $data[$value_key];
+				}
 			}
 		}
 
 		$variation->set_attributes($attributes);
-	}
-
-	/**
-	 * Aggiorna la marca del prodotto
-	 *
-	 * @param \WC_Product $product Prodotto
-	 * @param string      $brand   Nome della marca
-	 * @return void
-	 */
-	private function updateProductBrand($product, $brand) {
-		if (empty($brand)) {
-			return;
-		}
-
-		// Verifica se la tassonomia del brand esiste
-		$taxonomy = ConfigHelper::getBrandMetaKey();
-
-		if (!taxonomy_exists($taxonomy)) {
-			wc_create_attribute([
-				'name' => ucfirst('Marca'),
-				'slug' => $taxonomy,
-				'type' => 'select',
-				'order_by' => 'name',
-				'has_archives' => true,
-			]);
-
-			// Registra la tassonomia se non esiste
-			register_taxonomy($taxonomy, 'product', [
-				'hierarchical' => false,
-				'label' => 'Marca',
-				'show_ui' => true,
-				'query_var' => true,
-				'rewrite' => ['slug' => 'marca'],
-			]);
-		}
-
-		// Cerca o crea il termine della marca
-		$term = get_term_by('name', $brand, $taxonomy);
-		if (!$term) {
-			$result = wp_insert_term($brand, $taxonomy, [
-				'slug' => sanitize_title($brand),
-			]);
-
-			if (is_wp_error($result)) {
-				Utilities::log(
-					"Errore nella creazione della marca '$brand': " . $result->get_error_message(),
-					'error',
-				);
-				return;
-			}
-
-			$term_id = $result['term_id'];
-		} else {
-			$term_id = $term->term_id;
-		}
-
-		// Assegna la marca al prodotto
-		wp_set_object_terms($product->get_id(), [$term_id], $taxonomy);
 	}
 
 	/**

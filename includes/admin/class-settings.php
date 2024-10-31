@@ -246,10 +246,10 @@ class Settings {
 					),
 					$this->buildCheckbox(
 						'products_reference_mode',
-						'Modalità Reference',
+						'Modalità Codice Produttore',
 						'products',
 						'Modalità',
-						'Usa il codice di riferimento invece dello SKU',
+						'Usa il codice produttore invece dello SKU',
 					),
 					$this->buildCheckbox(
 						'products_disable_outofstock',
@@ -301,11 +301,11 @@ class Settings {
 						'Abilita la gestione multi-magazzino',
 					),
 					$this->buildField(
-						'products_ean_key',
-						'Chiave Codice a Barre',
+						'products_reference_key',
+						'Chiave Codice Produttore',
 						'products',
 						'Altri campi',
-						'Indica il campo slug per il codice a barre (Default: barcode)',
+						'Indica il campo slug per il codice produttore del prodotto (Default: reference)',
 					),
 					$this->buildField(
 						'products_brand_key',
@@ -313,6 +313,13 @@ class Settings {
 						'products',
 						'Altri campi',
 						'Indica il campo slug per le marche (Default: marca)',
+					),
+					$this->buildField(
+						'products_featured_key',
+						'Chiave "In Evidenza"',
+						'products',
+						'Altri campi',
+						'Indica il campo slug per il flag "In Evidenza" (Default: in-evidenza)',
 					),
 
 					// Products Don't Sync Settings
@@ -328,6 +335,20 @@ class Settings {
 						'products_dont_sync',
 						'Seleziona gli elementi da non aggiornare',
 					),
+					$this->buildCheckbox(
+						'products_dont_sync_reference',
+						'Codice Produttore',
+						'products_dont_sync',
+						'Seleziona gli elementi da non aggiornare',
+					),
+					$this->buildCheckbox(
+						'products_dont_sync_featured_flag',
+						'Flag "In Evidenza"',
+						'products_dont_sync',
+						'Seleziona gli elementi da non aggiornare',
+						'Il Flag in Eveidenza viene valorizzato da tutti i prodotti legati alla categoria Home in ISIGest',
+					),
+
 					$this->buildCheckbox(
 						'products_dont_sync_brand',
 						'Marca',

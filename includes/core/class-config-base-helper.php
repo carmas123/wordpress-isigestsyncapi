@@ -51,6 +51,7 @@ abstract class ConfigBaseHelper {
 
 		// Blocca Aggiornamenti
 		'products_dont_sync_ean',
+		'products_dont_sync_featured_flag',
 		'products_dont_sync_categories',
 		'products_dont_sync_dimension_and_weight',
 		'products_dont_sync_prices',
@@ -180,7 +181,8 @@ abstract class ConfigBaseHelper {
 			'products_round_net_price' => false,
 			'products_reference_mode' => false,
 			'products_brand_key' => 'marca',
-			'products_ean_key' => 'barcode',
+			'products_reference_key' => 'reference',
+			'products_featured_key' => 'in-evidenza',
 
 			// Taglie&Colori
 			'sizeandcolor_size_key' => 'taglia',
@@ -194,6 +196,7 @@ abstract class ConfigBaseHelper {
 			// Non sincronizzare
 			'products_dont_sync_categories' => false,
 			'products_dont_sync_ean' => false,
+			'products_dont_sync_featured_flag' => false,
 			'products_dont_sync_brand' => false,
 			'products_dont_sync_prices' => false,
 			'products_dont_sync_dimension_and_weight' => false,

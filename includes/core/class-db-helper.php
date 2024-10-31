@@ -2,7 +2,7 @@
 /**
  *
  * @package    ISIGestSyncAPI
- * @subpackage common
+ * @subpackage core
  * @author     ISIGest S.r.l.
  * @copyright  2024 ISIGest
  */

@@ -69,7 +69,36 @@ class ConfigHelper extends ConfigBaseHelper {
 	 * @return string
 	 */
 	public static function getBarcodeMetaKey(): string {
-		return ConfigHelper::$instance->get('products_brand_key');
+		return '_global_unique_id';
+	}
+
+	/**
+	 * Ritorna la chiave meta per la gestione del flag "In Evidenza"
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	public static function getInEvidenzaMetaKey(): string {
+		return wc_attribute_taxonomy_name(
+			Utilities::ifBlank(
+				ConfigHelper::$instance->get('products_featured_key'),
+				'in-evidenza',
+			),
+		);
+	}
+
+	/**
+	 * Ritorna la chiave meta per la gestione gestione del reference
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	public static function getReferenceMetaKey(): string {
+		return wc_attribute_taxonomy_name(
+			Utilities::ifBlank(ConfigHelper::$instance->get('products_reference_key'), 'reference'),
+		);
 	}
 
 	/**
@@ -80,7 +109,9 @@ class ConfigHelper extends ConfigBaseHelper {
 	 * @return string
 	 */
 	public static function getBrandMetaKey(): string {
-		return Utilities::ifBlank(ConfigHelper::$instance->get('products_brand_key'), 'marca');
+		return wc_attribute_taxonomy_name(
+			Utilities::ifBlank(ConfigHelper::$instance->get('products_brand_key'), 'marca'),
+		);
 	}
 
 	/**

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ISIGest Sync API
  * Description: Plugin per la sincronizzazione dei prodotti tramite API
- * Version: 1.0.3
+ * Version: 1.0.4
  * Author: ISIGest S.r.l.
  * Author URI: https://www.isigest.net
  *
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Definizioni costanti
-define('ISIGEST_SYNC_API_VERSION', '1.0.3');
+define('ISIGEST_SYNC_API_VERSION', '1.0.4');
 define('ISIGESTSYNCAPI_PLUGIN_FILE', __FILE__);
 define('ISIGEST_SYNC_API_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ISIGEST_SYNC_API_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -159,8 +159,8 @@ class Plugin {
 		// AGGIUNGERE QUI LE DIPENDENZE RICHIESTE SE NECESSARIE
 		// SOLO SE NON GESTITI TRAMITE AUTOLOAD
 		require_once ISIGEST_SYNC_API_PLUGIN_DIR . '/includes/core/class-exceptions.php';
-		require_once ISIGEST_SYNC_API_PLUGIN_DIR .
-			'/includes/admin/class-product-advanced-fields-admin.php';
+		// require_once ISIGEST_SYNC_API_PLUGIN_DIR .
+		// 	'/includes/admin/class-product-advanced-fields-admin.php';
 	}
 
 	/**
