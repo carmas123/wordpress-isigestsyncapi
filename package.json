@@ -6,6 +6,7 @@
 	"main": "Gruntfile.js",
 	"license": "GPL-2.0-or-later",
 	"scripts": {
+		"clean": "grunt clean",
 		"build": "grunt build",
 		"watch": "grunt watch",
 		"package": "grunt package",
