@@ -48,6 +48,27 @@ function updateVersion(type = 'patch') {
 
 	fs.writeFileSync(pluginPath, pluginContent);
 
+	// Aggiorna readme.txt
+	const readmePath = path.join(__dirname, '..', 'readme.txt');
+	if (fs.existsSync(readmePath)) {
+		let readmeContent = fs.readFileSync(readmePath, 'utf8');
+
+		// Aggiorna Stable tag
+		readmeContent = readmeContent.replace(/Stable tag:\s*[0-9.]+/, `Stable tag: ${newVersion}`);
+
+		// Aggiorna la sezione Changelog se esiste
+		const today = new Date().toISOString().split('T')[0];
+		if (readmeContent.includes('== Changelog ==')) {
+			const changelogEntry = `\n= ${newVersion} - ${today} =\n* Version bump\n`;
+			readmeContent = readmeContent.replace(
+				/== Changelog ==/,
+				`== Changelog ==\n${changelogEntry}`
+			);
+		}
+
+		fs.writeFileSync(readmePath, readmeContent);
+	}
+
 	console.log(`Version updated to ${newVersion}`);
 	return newVersion;
 }
