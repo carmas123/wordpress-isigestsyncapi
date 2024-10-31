@@ -25,6 +25,7 @@ module.exports = function (grunt) {
 							'!build/**',
 							'!release/**',
 							'!tools/**',
+							'!vendor/**',
 							'!.git/**',
 							'!.github/**',
 							'!tests/**',
@@ -43,7 +44,7 @@ module.exports = function (grunt) {
 							'!CHANGELOG.md',
 							'!.php-cs-fixer.php',
 							'!php-cs-fixer.php',
-							'.tabnine_root'
+							'!.tabnine_root'
 						],
 						dest: 'build/'
 					}

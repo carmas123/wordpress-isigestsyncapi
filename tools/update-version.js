@@ -56,6 +56,9 @@ function updateVersion(type = 'patch') {
 		// Aggiorna Stable tag
 		readmeContent = readmeContent.replace(/Stable tag:\s*[0-9.]+/, `Stable tag: ${newVersion}`);
 
+		// Aggiorna Version tag se presente
+		readmeContent = readmeContent.replace(/Version:\s*[0-9.]+/, `Version: ${newVersion}`);
+
 		// Aggiorna la sezione Changelog se esiste
 		const today = new Date().toISOString().split('T')[0];
 		if (readmeContent.includes('== Changelog ==')) {
