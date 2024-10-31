@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ISIGest Sync API
  * Description: Plugin per la sincronizzazione dei prodotti tramite API
- * Version: 1.0.9
+ * Version: 1.0.12
  * Author: ISIGest S.r.l.
  * Author URI: https://www.isigest.net
  *
@@ -20,18 +20,18 @@ if (!defined('ABSPATH')) {
 }
 
 // Definizioni costanti
-define('ISIGEST_SYNC_API_VERSION', '1.0.9');
+define('ISIGESTSYNCAPI_VERSION', '1.0.12');
 define('ISIGESTSYNCAPI_PLUGIN_FILE', __FILE__);
-define('ISIGEST_SYNC_API_PLUGIN_DIR', plugin_dir_path(__FILE__));
-define('ISIGEST_SYNC_API_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('ISIGESTSYNCAPI_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('ISIGESTSYNCAPI_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 // Carica l'autoloader
-require_once ISIGEST_SYNC_API_PLUGIN_DIR . '/includes/autoload.php';
+require_once ISIGESTSYNCAPI_PLUGIN_DIR . '/includes/autoload.php';
 
 if (!defined('WP_USE_THEMES')) {
 	define('WP_USE_THEMES', false);
 }
-require_once ISIGEST_SYNC_API_PLUGIN_DIR . '../../../wp-load.php';
+require_once ISIGESTSYNCAPI_PLUGIN_DIR . '../../../wp-load.php';
 
 /**
  * Classe principale del plugin.
@@ -158,7 +158,7 @@ class Plugin {
 	private function loadDependencies() {
 		// AGGIUNGERE QUI LE DIPENDENZE RICHIESTE SE NECESSARIE
 		// SOLO SE NON GESTITI TRAMITE AUTOLOAD
-		require_once ISIGEST_SYNC_API_PLUGIN_DIR . '/includes/core/class-exceptions.php';
+		require_once ISIGESTSYNCAPI_PLUGIN_DIR . '/includes/core/class-exceptions.php';
 	}
 
 	/**

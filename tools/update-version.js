@@ -40,10 +40,10 @@ function updateVersion(type = 'patch') {
 	// Aggiorna la versione nel plugin
 	pluginContent = pluginContent.replace(/(\* Version:).*$/m, `$1 ${newVersion}`);
 
-	// Aggiorna la costante ISIGEST_SYNC_API_VERSION
+	// Aggiorna la costante ISIGESTSYNCAPI_VERSION
 	pluginContent = pluginContent.replace(
-		/define\('ISIGEST_SYNC_API_VERSION',\s*'[^']*'\);/,
-		`define('ISIGEST_SYNC_API_VERSION', '${newVersion}');`
+		/define\('ISIGESTSYNCAPI_VERSION',\s*'[^']*'\);/,
+		`define('ISIGESTSYNCAPI_VERSION', '${newVersion}');`
 	);
 
 	fs.writeFileSync(pluginPath, pluginContent);
