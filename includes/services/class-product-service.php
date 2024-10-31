@@ -668,7 +668,7 @@ class ProductService extends BaseService {
 	 * @param string $sku        SKU da cercare
 	 * @return int|null
 	 */
-	private function findVariationBySku($sku) {
+	protected function findVariationBySku($sku) {
 		global $wpdb;
 
 		$product_id = $wpdb->get_var(
