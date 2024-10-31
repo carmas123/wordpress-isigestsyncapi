@@ -42,7 +42,8 @@ module.exports = function (grunt) {
 							'!README.md',
 							'!CHANGELOG.md',
 							'!.php-cs-fixer.php',
-							'!php-cs-fixer.php'
+							'!php-cs-fixer.php',
+							'.tabnine_root'
 						],
 						dest: 'build/'
 					}
