@@ -159,8 +159,6 @@ class Plugin {
 		// AGGIUNGERE QUI LE DIPENDENZE RICHIESTE SE NECESSARIE
 		// SOLO SE NON GESTITI TRAMITE AUTOLOAD
 		require_once ISIGEST_SYNC_API_PLUGIN_DIR . '/includes/core/class-exceptions.php';
-		// require_once ISIGEST_SYNC_API_PLUGIN_DIR .
-		// 	'/includes/admin/class-product-advanced-fields-admin.php';
 	}
 
 	/**
