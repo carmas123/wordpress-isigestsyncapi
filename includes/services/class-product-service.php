@@ -879,6 +879,11 @@ class ProductService extends BaseService {
 	}
 
 	private function handleVariantsAndAttributes($product, $data) {
+		$isigest = $data['isigest'] ?? null;
+		if (!$isigest) {
+			throw new ISIGestSyncApiBadRequestException('Dati ISIGest non trovati');
+		}
+
 		// Verifichiamo se il prodotto è una variabile
 		$is_variable =
 			isset($data['attributes']) &&
@@ -886,18 +891,13 @@ class ProductService extends BaseService {
 			!empty($data['attributes']);
 
 		// Convertiamo il prodotto in variabile se non lo è già
-		if (!$product->is_type('variable')) {
+		if ($is_variable && !$product->is_type('variable')) {
 			$product_variable = new \WC_Product_Variable($product->get_id());
 			$product = $product_variable;
 		}
 
 		$attributes = [];
 		$variations = [];
-
-		$isigest = $data['isigest'] ?? null;
-		if (!$isigest) {
-			throw new ISIGestSyncApiBadRequestException('Dati ISIGest non trovati');
-		}
 
 		// Raccogliamo tutti i valori degli attributi
 		foreach ($data['attributes'] as $variant) {
@@ -931,7 +931,9 @@ class ProductService extends BaseService {
 		$this->handleBarcode($product->get_id(), $data);
 
 		// Creiamo o aggiorniamo le variazioni
-		$this->updateProductVariations($product, $variations, $isigest);
+		if ($is_variable) {
+			$this->updateProductVariations($product, $variations, $isigest);
+		}
 	}
 
 	private function handleMarca(&$attributes, $data) {
