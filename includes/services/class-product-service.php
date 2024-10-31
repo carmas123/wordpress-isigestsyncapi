@@ -899,14 +899,19 @@ class ProductService extends BaseService {
 		$attributes = [];
 		$variations = [];
 
-		// Raccogliamo tutti i valori degli attributi
-		foreach ($data['attributes'] as $variant) {
-			// Prepariamo gli attributi della variante
-			$attributes[] = $this->prepareVariationAttributes($variant, (bool) $isigest['is_tc']);
+		// Raccogliamo tutti i valori degli attributi delle varianti
+		if ($is_variable) {
+			foreach ($data['attributes'] as $variant) {
+				// Prepariamo gli attributi della variante
+				$attributes[] = $this->prepareVariationAttributes(
+					$variant,
+					(bool) $isigest['is_tc'],
+				);
 
-			// Prepariamo i dati della variante
-			if (!empty($variant['sku'])) {
-				$variations[] = $variant;
+				// Prepariamo i dati della variante
+				if (!empty($variant['sku'])) {
+					$variations[] = $variant;
+				}
 			}
 		}
 

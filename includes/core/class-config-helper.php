@@ -80,11 +80,9 @@ class ConfigHelper extends ConfigBaseHelper {
 	 * @return string
 	 */
 	public static function getInEvidenzaMetaKey(): string {
-		return wc_attribute_taxonomy_name(
-			Utilities::ifBlank(
-				ConfigHelper::$instance->get('products_featured_key'),
-				'in-evidenza',
-			),
+		return Utilities::ifBlank(
+			ConfigHelper::$instance->get('products_featured_key'),
+			wc_attribute_taxonomy_name('in-evidenza'),
 		);
 	}
 
@@ -96,8 +94,9 @@ class ConfigHelper extends ConfigBaseHelper {
 	 * @return string
 	 */
 	public static function getReferenceMetaKey(): string {
-		return wc_attribute_taxonomy_name(
-			Utilities::ifBlank(ConfigHelper::$instance->get('products_reference_key'), 'reference'),
+		return Utilities::ifBlank(
+			ConfigHelper::$instance->get('products_reference_key'),
+			wc_attribute_taxonomy_name('reference'),
 		);
 	}
 
@@ -109,8 +108,9 @@ class ConfigHelper extends ConfigBaseHelper {
 	 * @return string
 	 */
 	public static function getBrandMetaKey(): string {
-		return wc_attribute_taxonomy_name(
-			Utilities::ifBlank(ConfigHelper::$instance->get('products_brand_key'), 'marca'),
+		return Utilities::ifBlank(
+			ConfigHelper::$instance->get('products_brand_key'),
+			wc_attribute_taxonomy_name('marca'),
 		);
 	}
 
@@ -122,8 +122,9 @@ class ConfigHelper extends ConfigBaseHelper {
 	 * @return string
 	 */
 	public static function getSizeAndColorSizeKey(): string {
-		return wc_attribute_taxonomy_name(
-			Utilities::ifBlank(ConfigHelper::$instance->get('sizeandcolor_size_key'), 'taglia'),
+		return Utilities::ifBlank(
+			ConfigHelper::$instance->get('sizeandcolor_size_key'),
+			wc_attribute_taxonomy_name('taglia'),
 		);
 	}
 
@@ -135,8 +136,9 @@ class ConfigHelper extends ConfigBaseHelper {
 	 * @return string
 	 */
 	public static function getSizeAndColorColorKey(): string {
-		return wc_attribute_taxonomy_name(
-			Utilities::ifBlank(ConfigHelper::$instance->get('sizeandcolor_color_key'), 'colore'),
+		return Utilities::ifBlank(
+			ConfigHelper::$instance->get('sizeandcolor_color_key'),
+			wc_attribute_taxonomy_name('colore'),
 		);
 	}
 

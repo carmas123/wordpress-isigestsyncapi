@@ -305,21 +305,21 @@ class Settings {
 						'Chiave Codice Produttore',
 						'products',
 						'Altri campi',
-						'Indica il campo slug per il codice produttore del prodotto (Default: reference)',
+						'Indica il campo slug per il codice produttore del prodotto (Default: pa_reference)',
 					),
 					$this->buildField(
 						'products_brand_key',
 						'Chiave Marca',
 						'products',
 						'Altri campi',
-						'Indica il campo slug per le marche (Default: marca)',
+						'Indica il campo slug per le marche (Default: pa_marca)',
 					),
 					$this->buildField(
 						'products_featured_key',
 						'Chiave "In Evidenza"',
 						'products',
 						'Altri campi',
-						'Indica il campo slug per il flag "In Evidenza" (Default: in-evidenza)',
+						'Indica il campo slug per il flag "In Evidenza" (Default: pa_in-evidenza)',
 					),
 
 					// Products Don't Sync Settings
@@ -380,14 +380,14 @@ class Settings {
 						'Chiave Taglie',
 						'sizesandcolors',
 						'Definizione',
-						'Indica il campo slug per le taglie (Default: taglia)',
+						'Indica il campo slug per le taglie (Default: pa_taglia)',
 					),
 					$this->buildField(
 						'sizeandcolor_color_key',
 						'Chiave Colori',
 						'sizesandcolors',
 						'Definizione',
-						'Indica il campo slug per i colori (Default: colore)',
+						'Indica il campo slug per i colori (Default: pa_colore)',
 					),
 
 					// Advanced Settings
