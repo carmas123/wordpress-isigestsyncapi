@@ -79,7 +79,9 @@ class ImageService {
 			}
 
 			// Pulisci il file temporaneo
-			@unlink($temp_file);
+			if (file_exists($temp_file)) {
+				@unlink($temp_file);
+			}
 
 			return ['id' => $attachment_id];
 		} catch (\Exception $e) {

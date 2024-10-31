@@ -45,17 +45,18 @@ abstract class ProductAttribute {
 				);
 			}
 
-			// Registra la tassonomia se non esiste
-			register_taxonomy($attribute_name, 'product', [
-				'hierarchical' => false,
-				'label' => $attribute_label,
-				'show_ui' => true,
-				'query_var' => true,
-				'rewrite' => ['slug' => $attribute_name],
-			]);
+			if (!taxonomy_exists($attribute_name)) {
+				register_taxonomy($attribute_name, 'product', [
+					'hierarchical' => false,
+					'label' => $attribute_label,
+					'show_ui' => true,
+					'query_var' => true,
+					'rewrite' => ['slug' => $attribute_name],
+				]);
 
-			// Flush rewrite rules dopo la creazione della tassonomia
-			flush_rewrite_rules();
+				// Flush rewrite rules dopo la creazione della tassonomia
+				flush_rewrite_rules();
+			}
 		}
 
 		return $attribute_id;

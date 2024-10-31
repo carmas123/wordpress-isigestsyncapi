@@ -584,9 +584,12 @@ class ProductService extends BaseService {
 		$category_ids = [];
 
 		foreach ($categories as $category_path) {
-			$category_id = $this->getOrCreateCategoryFromPath($category_path);
-			if ($category_id) {
-				$category_ids[] = $category_id;
+			$category_path ??= trim($category_path);
+			if (!empty($category_path)) {
+				$category_id = $this->getOrCreateCategoryFromPath($category_path);
+				if ($category_id) {
+					$category_ids[] = $category_id;
+				}
 			}
 		}
 
@@ -743,6 +746,7 @@ class ProductService extends BaseService {
 
 			// Rimuoviamo gli spazi iniziali e finali
 			$category_name = trim($category_name);
+			$category_name = htmlentities($category_name);
 
 			// Azzeriamo il Category Id (Importante altrimenti potrebbe rimanere quello del padre)
 			$category_id = 0;
