@@ -2,7 +2,7 @@
 
 use ISIGestSyncAPI\Core\DbHelper;
 
-function isigestsyncapi_upgrade_1_0_22(): bool {
+function isigestsyncapi_upgrade_1_0_25(): bool {
 	global $wpdb;
 	$p = $wpdb->prefix;
 
