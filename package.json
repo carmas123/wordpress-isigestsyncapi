@@ -1,6 +1,6 @@
 {
 	"name": "isigestsyncapi",
-	"version": "1.0.26",
+	"version": "1.0.27",
 	"description": "Plugin per la sincronizzazione dei dati di ISIGest tramite API",
 	"author": "ISIGest S.r.l.",
 	"main": "Gruntfile.js",
