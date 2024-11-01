@@ -179,20 +179,46 @@ class Utilities {
 	 * @param string $type    Il tipo di messaggio (error, warning, info).
 	 * @return void
 	 */
-	public static function log($message, $type = 'info'): void {
-		if (!self::logEnabled() && $type !== 'error' && $type !== 'warning') {
-			return;
+	public static function log($message, $type = 'info'): bool {
+		if (
+			!self::logEnabled() &&
+			$type !== 'error' &&
+			$type !== 'warning' &&
+			$type !== 'exception'
+		) {
+			return false;
 		}
 
 		if (!is_string($message)) {
 			$message = print_r($message, true);
 		}
 
-		$log_file = WP_CONTENT_DIR . '/isigestsyncapi-debug.log';
+		$log_file = ISIGESTSYNCAPI_LOGS_DIR . '/isigestsyncapi.log';
 		$date = date('Y-m-d H:i:s');
 		$formatted_message = sprintf('[%s] [%s] %s', $date, strtoupper($type), $message);
 
-		file_put_contents($log_file, $formatted_message . PHP_EOL, FILE_APPEND | LOCK_EX) !== false;
+		return file_put_contents($log_file, $formatted_message . PHP_EOL, FILE_APPEND | LOCK_EX) !==
+			false;
+	}
+
+	/**
+	 * Log debug.
+	 *
+	 * @param string  $message Il messaggio.
+	 * @return void
+	 */
+	public static function logDebug($message): void {
+		self::log($message, 'debug');
+	}
+
+	/**
+	 * Log di un errore.
+	 *
+	 * @param \Exception  $ex Il messaggio.
+	 * @return void
+	 */
+	public static function logException($ex): void {
+		self::log($ex->getMessage(), 'exception');
 	}
 
 	/**

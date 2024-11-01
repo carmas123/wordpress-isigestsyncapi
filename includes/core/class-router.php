@@ -30,6 +30,8 @@ class Router {
 		$request_path = $this->getRequestPath();
 		$method = $_SERVER['REQUEST_METHOD'];
 
+		Utilities::logDebug("Request $method path: $request_path");
+
 		// Forza l'inizializzazione di WooCommerce
 		$this->initializeWooCommerce();
 
@@ -220,6 +222,8 @@ class Router {
 	 * @param bool $die Se terminare l'esecuzione
 	 */
 	protected function sendJsonException(\Throwable $error, int $code = 500, bool $die = true) {
+		Utilities::logException($error);
+
 		ob_clean();
 		header('Content-Type: application/json; charset=utf-8');
 		http_response_code($code);
@@ -246,6 +250,7 @@ class Router {
 	 * Invia una risposta di non autorizzato (401)
 	 */
 	protected function sendJsonUnauthorized() {
+		Utilities::logWarn('Unauthorized request from ' . Utilities::getClientIp());
 		$this->sendJsonError('Unauthorized', 401);
 	}
 
@@ -253,6 +258,7 @@ class Router {
 	 * Invia una risposta di richiesta non valida (400)
 	 */
 	protected function sendJsonBadRequest() {
+		Utilities::logWarn('Bad request from ' . Utilities::getClientIp());
 		$this->sendJsonError('Bad request', 400);
 	}
 
@@ -260,6 +266,7 @@ class Router {
 	 * Invia una risposta di richiesta non trovato (404)
 	 */
 	protected function sendJsonNotFoundRequest() {
+		Utilities::logWarn('Not found request from ' . Utilities::getClientIp());
 		$this->sendJsonError('Not found', 404);
 	}
 

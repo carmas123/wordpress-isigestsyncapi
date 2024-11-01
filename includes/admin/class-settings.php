@@ -52,7 +52,7 @@ class Settings {
 		$this->helper = new SettingsHelper();
 		$this->config = ConfigHelper::getInstance();
 		$this->active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'general';
-		$this->debug_log_file = WP_CONTENT_DIR . '/isigestsyncapi-debug.log';
+		$this->debug_log_file = $log_file = ISIGESTSYNCAPI_LOGS_DIR . '/isigestsyncapi.log';
 
 		add_action('wp_ajax_isigestsyncapi_save_settings', [$this, 'ajaxSaveSettings']);
 		add_action('wp_ajax_isigestsyncapi_clear_log', [$this, 'ajaxClearLog']);
@@ -426,14 +426,14 @@ class Settings {
 					// Advanced Settings
 					$this->buildCheckbox(
 						'enable_debug',
-						'Modalità debug',
+						'Attiva log dettagliato',
 						'advanced',
 						'Debug',
-						'Abilita il log dettagliato per il debug',
+						'Abilita il log dettagliato per tutti gli eventi',
 					),
 					[
 						'type' => 'textarea',
-						'label' => __('Log di debug', 'isigestsyncapi'),
+						'label' => __('Log', 'isigestsyncapi'),
 						'name' => 'debug_log',
 						'readonly' => true,
 						'description' => __('Log delle operazioni recenti', 'isigestsyncapi'),
