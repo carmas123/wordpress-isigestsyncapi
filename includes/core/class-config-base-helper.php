@@ -48,6 +48,9 @@ abstract class ConfigBaseHelper {
 		'products_price_withtax',
 		'products_round_net_price',
 		'products_reference_mode',
+		'products_reference_hidden',
+		'products_brand_hidden',
+		'products_featured_hidden',
 
 		// Blocca Aggiornamenti
 		'products_dont_sync_ean',

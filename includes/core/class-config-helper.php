@@ -81,7 +81,7 @@ class ConfigHelper extends ConfigBaseHelper {
 	 */
 	public static function getInEvidenzaMetaKey(): string {
 		return Utilities::ifBlank(
-			ConfigHelper::$instance->get('products_featured_key'),
+			ConfigHelper::getInstance()->get('products_featured_key'),
 			wc_attribute_taxonomy_name('in-evidenza'),
 		);
 	}
@@ -95,7 +95,7 @@ class ConfigHelper extends ConfigBaseHelper {
 	 */
 	public static function getReferenceMetaKey(): string {
 		return Utilities::ifBlank(
-			ConfigHelper::$instance->get('products_reference_key'),
+			ConfigHelper::getInstance()->get('products_reference_key'),
 			wc_attribute_taxonomy_name('reference'),
 		);
 	}
@@ -109,7 +109,7 @@ class ConfigHelper extends ConfigBaseHelper {
 	 */
 	public static function getBrandMetaKey(): string {
 		return Utilities::ifBlank(
-			ConfigHelper::$instance->get('products_brand_key'),
+			ConfigHelper::getInstance()->get('products_brand_key'),
 			wc_attribute_taxonomy_name('marca'),
 		);
 	}
@@ -123,7 +123,7 @@ class ConfigHelper extends ConfigBaseHelper {
 	 */
 	public static function getSizeAndColorSizeKey(): string {
 		return Utilities::ifBlank(
-			ConfigHelper::$instance->get('sizeandcolor_size_key'),
+			ConfigHelper::getInstance()->get('sizeandcolor_size_key'),
 			wc_attribute_taxonomy_name('taglia'),
 		);
 	}
@@ -137,9 +137,46 @@ class ConfigHelper extends ConfigBaseHelper {
 	 */
 	public static function getSizeAndColorColorKey(): string {
 		return Utilities::ifBlank(
-			ConfigHelper::$instance->get('sizeandcolor_color_key'),
+			ConfigHelper::getInstance()->get('sizeandcolor_color_key'),
 			wc_attribute_taxonomy_name('colore'),
 		);
+	}
+
+	/**
+	 * Ritorna la versione del database del plugin
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	public static function getDbVersion(): string {
+		return Utilities::ifBlank(ConfigHelper::getInstance()->get('db_version'), '1.0.0');
+	}
+
+	/**
+	 * Ritorna la versione del database del plugin
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	public static function setDbVersion($version): bool {
+		return ConfigHelper::getInstance()->set('db_version', $version);
+	}
+
+	/**
+	 * Ritorna la versione del database del plugin
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	public static function setDbVersionCurrent(): bool {
+		return self::setDbVersion(ISIGESTSYNCAPI_VERSION);
+	}
+
+	public static function getDbNeedToBeUpgrade(): bool {
+		return version_compare(self::getDbVersion(), ISIGESTSYNCAPI_VERSION) < 0;
 	}
 
 	public static function clearCacheStatic() {

@@ -10,7 +10,6 @@
 
 namespace ISIGestSyncAPI\Services;
 
-use ISIGestSyncAPI\Core\DbHelper;
 use ISIGestSyncAPI\Core\ISIGestSyncApiWarningException;
 use ISIGestSyncAPI\Core\Utilities;
 use ISIGestSyncAPI\Core\ConfigHelper;
@@ -87,11 +86,13 @@ class StockService extends BaseService {
 			$product_id = $p->get_parent_id();
 		}
 
+		// Impostiamo il Magazzino
+		$warehouse = Utilities::ifBlank($data['warehouse'], '@@');
+
 		// Gestiamo il magazzino multiplo se abilitato
-		if ($this->config->get('products_multi_warehouse')) {
-			$this->handleMultiWarehouse($product_id, $variation_id, $data);
-		} else {
-			$this->updateSingleWarehouse($product_id, $variation_id, $data);
+		if ($warehouse === '@@') {
+			// L'aggiornamento di WooCommerce lo facciamo solo per i record dei saldi Totale
+			$this->updateProductOrVariantStock($product_id, $variation_id, $data);
 		}
 
 		// Storicizziamo lo stock
@@ -99,8 +100,8 @@ class StockService extends BaseService {
 			$product_id,
 			$variation_id,
 			$data['sku'],
-			$data['warehouse'] ?? '@@',
 			$this->getStockQuantity($data),
+			$warehouse,
 		);
 
 		// Verifichiamo lo stato del prodotto
@@ -143,7 +144,7 @@ class StockService extends BaseService {
 			$product_id = $p->get_parent_id();
 		}
 
-		self::updateSingleWarehouse($product_id, $variation_id, $data);
+		self::updateProductOrVariantStock($product_id, $variation_id, $data);
 	}
 
 	/**
@@ -154,7 +155,7 @@ class StockService extends BaseService {
 	 * @param array   $data        Dati dello stock.
 	 * @return void
 	 */
-	public static function updateSingleWarehouse($product_id, $variation_id, $data) {
+	public static function updateProductOrVariantStock($product_id, $variation_id, $data) {
 		if (!self::syncEnabled()) {
 			return;
 		}
@@ -185,36 +186,6 @@ class StockService extends BaseService {
 
 		// Aggiorna la cache di WooCommerce
 		wc_delete_product_transients($product_id);
-	}
-
-	/**
-	 * Gestisce l'aggiornamento stock per magazzino multiplo.
-	 *
-	 * @param integer $product_id   ID del prodotto.
-	 * @param integer $variation_id ID della variante.
-	 * @param array   $data        Dati dello stock.
-	 * @return void
-	 */
-	private function handleMultiWarehouse($product_id, $variation_id, $data) {
-		global $wpdb;
-
-		$warehouse = $data['warehouse'] ?? '@@';
-		$new_quantity = $this->getStockQuantity($data);
-
-		// Aggiorniamo lo stock per il magazzino specifico
-		$wpdb->replace($wpdb->prefix . 'isi_api_warehouse', [
-			'post_id' => $product_id,
-			'variation_id' => $variation_id,
-			'warehouse' => $warehouse,
-			'stock_quantity' => $new_quantity,
-			'stock_status' => $new_quantity > 0 ? 'instock' : 'outofstock',
-		]);
-
-		// Calcoliamo il totale di tutti i magazzini
-		$total_quantity = $this->calculateTotalWarehouseQuantity($product_id, $variation_id);
-
-		// Aggiorniamo lo stock totale
-		$this->updateSingleWarehouse($product_id, $variation_id, ['quantity' => $total_quantity]);
 	}
 
 	/**
@@ -277,16 +248,21 @@ class StockService extends BaseService {
 	 * @param integer $quantity    Quantità.
 	 * @return void
 	 */
-	private function historyProductStock($product_id, $variation_id, $sku, $warehouse, $quantity) {
+	private function historyProductStock(
+		$product_id,
+		$variation_id,
+		$sku,
+		$quantity,
+		$warehouse = '@@'
+	) {
 		global $wpdb;
 
 		$wpdb->replace($wpdb->prefix . 'isi_api_stock', [
 			'post_id' => $product_id,
 			'variation_id' => $variation_id,
 			'sku' => $sku,
-			'warehouse' => $warehouse,
-			'stock_quantity' => $quantity,
-			'stock_status' => $quantity > 0 ? 'instock' : 'outofstock',
+			'warehouse' => Utilities::ifBlank($warehouse, '@@'),
+			'quantity' => $quantity,
 		]);
 	}
 

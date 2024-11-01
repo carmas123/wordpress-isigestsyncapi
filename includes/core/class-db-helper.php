@@ -19,11 +19,8 @@ class DbHelper {
 	 */
 	public static function execSQL($sql) {
 		global $wpdb;
-		if ($wpdb->query($sql) === true) {
-			$e = new ISIGestSyncApiDbException(
-				$wpdb->error->get_error_message(),
-				$wpdb->last_query,
-			);
+		if ($wpdb->query($sql) === false) {
+			$e = new ISIGestSyncApiDbException($wpdb->last_error, $wpdb->last_query);
 			throw $e;
 		}
 
@@ -50,22 +47,53 @@ class DbHelper {
 
 	// Esecuzione comandi in Transazione
 	public static function execSQLsInTransaction(array $sql): bool {
-		self::execSQL('SET autocommit = 0;');
-		self::execSQL('START TRANSACTION');
+		global $wpdb;
+
+		// Disabilita momentaneamente la visualizzazione degli errori
+		$show_errors = $wpdb->show_errors;
+		$wpdb->show_errors = false;
+
+		// Salva il valore corrente di autocommit
+		$autocommit = $wpdb->get_var('SELECT @@autocommit');
+
 		try {
-			foreach ($sql as $query) {
-				if (!self::execSQL($query)) {
-					return false;
+			// Inizia la transazione
+			$wpdb->query('SET autocommit = 0');
+			$wpdb->query('START TRANSACTION');
+
+			foreach ($sql as $index => $query) {
+				$result = $wpdb->query($query);
+
+				if ($result === false) {
+					throw new \Exception(
+						sprintf(
+							'Query SQL fallita (#%d): %s. Errore: %s',
+							$index,
+							$query,
+							$wpdb->last_error,
+						),
+					);
 				}
 			}
-			self::execSQL('COMMIT');
+
+			// Commit della transazione
+			$wpdb->query('COMMIT');
+			return true;
 		} catch (\Exception $e) {
-			self::execSQL('ROLLBACK');
+			// Rollback in caso di errore
+			$wpdb->query('ROLLBACK');
+
+			// Log dell'errore
+			Utilities::logError($e);
+
 			throw $e;
 		} finally {
-			self::execSQL('SET autocommit = 1;');
+			// Ripristina autocommit al suo valore originale
+			$wpdb->query("SET autocommit = $autocommit");
+
+			// Ripristina la visualizzazione degli errori
+			$wpdb->show_errors = $show_errors;
 		}
-		return true;
 	}
 
 	public static function startTransaction(): bool {

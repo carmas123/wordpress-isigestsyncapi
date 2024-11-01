@@ -69,6 +69,9 @@ class Router {
 		$body = $this->getRequestBody();
 
 		switch ("$method $path") {
+			case 'GET ping':
+				return $this->api_handler->handlePing();
+
 			case 'GET product/receive':
 				return $this->api_handler->getProductsToReceive();
 
@@ -114,7 +117,7 @@ class Router {
 	 */
 	private function checkApiPermission() {
 		$headers = $this->getRequestHeaders();
-		$api_key = isset($headers['X-Isigest-Authtoken']) ? $headers['X-Isigest-Authtoken'] : '';
+		$api_key = $headers['x-isigest-authtoken'] ?? '';
 		$valid_key = ConfigHelper::getInstance()->get('api_key');
 
 		return $api_key === $valid_key;
@@ -126,17 +129,20 @@ class Router {
 	private function getRequestHeaders() {
 		$headers = [];
 		if (function_exists('getallheaders')) {
-			$headers = getallheaders();
+			// Nel caso getallheaders() sia disponibile
+			$rawHeaders = getallheaders();
+			foreach ($rawHeaders as $key => $value) {
+				$headers[strtolower($key)] = $value;
+			}
 		} else {
+			// Fallback per server che non supportano getallheaders()
 			foreach ($_SERVER as $name => $value) {
 				if (substr($name, 0, 5) === 'HTTP_') {
-					$headers[
-						str_replace(
-							' ',
-							'-',
-							ucwords(strtolower(str_replace('_', ' ', substr($name, 5)))),
-						)
-					] = $value;
+					$headerKey = substr($name, 5);
+					$headerKey = str_replace('_', ' ', $headerKey);
+					$headerKey = strtolower($headerKey);
+					$headerKey = str_replace(' ', '-', $headerKey);
+					$headers[$headerKey] = $value;
 				}
 			}
 		}

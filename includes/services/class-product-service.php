@@ -76,11 +76,6 @@ class ProductService extends BaseService {
 
 		// Verifica se il prodotto è a Taglie&Colori
 		$is_tc = (bool) $isigest['is_tc'];
-		if ($is_tc) {
-			throw new ISIGestSyncApiException(
-				'Prodotto a Taglie&Colori non sincronizzabile: configurazione non abilitata',
-			);
-		}
 
 		// Cerchiamo il prodotto per SKU
 		$product_id =
@@ -650,7 +645,7 @@ class ProductService extends BaseService {
 	 *
 	 * @return array Un array contenente l'attributo preparato.
 	 */
-	private function prepareFeatureAttributes($value, $label, $key = null) {
+	private function prepareFeatureAttributes($value, $label, $key, $hidden = false) {
 		$attributes = [];
 
 		// Impostiamo la chiave
@@ -660,6 +655,7 @@ class ProductService extends BaseService {
 			'variant' => false,
 			'label' => $label,
 			'value' => $value,
+			'hidden' => (bool) $hidden,
 		];
 
 		return $attributes;
@@ -841,6 +837,7 @@ class ProductService extends BaseService {
 					$processed_attributes[$key] = [
 						'label' => $value['label'],
 						'variant' => $value['variant'] ? 1 : 0,
+						'hidden' => $value['hidden'] ? 1 : 0,
 					];
 					$processed_attributes[$key]['values'] = [];
 				}
@@ -869,7 +866,7 @@ class ProductService extends BaseService {
 				$attribute->set_name($name);
 				$attribute->set_options($term_ids);
 				$attribute->set_position(array_search($name, array_keys($processed_attributes)));
-				$attribute->set_visible(true);
+				$attribute->set_visible(!((bool) $values['hidden']));
 				$attribute->set_variation((bool) $values['variant']);
 
 				$product_attributes[] = $attribute;
@@ -957,6 +954,7 @@ class ProductService extends BaseService {
 				$data['brand']['name'],
 				'Marca',
 				ConfigHelper::getBrandMetaKey(),
+				$this->config->get('products_brand_hidden', false),
 			);
 		}
 	}
@@ -971,6 +969,7 @@ class ProductService extends BaseService {
 				$data['reference'],
 				'Codice Produttore',
 				ConfigHelper::getReferenceMetaKey(),
+				$this->config->get('products_reference_hidden', false),
 			);
 		}
 	}
@@ -995,6 +994,7 @@ class ProductService extends BaseService {
 				$data['isigest']['featured'] ? 'Si' : 'No',
 				'In Evidenza',
 				ConfigHelper::getInEvidenzaMetaKey(),
+				$this->config->get('products_featured_hidden', false),
 			);
 		}
 	}

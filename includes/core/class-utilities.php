@@ -180,7 +180,7 @@ class Utilities {
 	 * @return void
 	 */
 	public static function log($message, $type = 'info'): void {
-		if (!self::logEnabled()) {
+		if (!self::logEnabled() || $type === 'error') {
 			return;
 		}
 
@@ -188,7 +188,7 @@ class Utilities {
 			$message = print_r($message, true);
 		}
 
-		$log_file = WP_CONTENT_DIR . '/debug-isigest.log';
+		$log_file = WP_CONTENT_DIR . '/debug-isigestsyncapi.log';
 		$date = date('Y-m-d H:i:s');
 		$formatted_message = sprintf("[%s] [%s] %s\n", $date, strtoupper($type), $message);
 

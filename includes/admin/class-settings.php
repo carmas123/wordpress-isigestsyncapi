@@ -300,26 +300,50 @@ class Settings {
 						'Inventario',
 						'Abilita la gestione multi-magazzino',
 					),
+
+					// Codice Produttore
 					$this->buildField(
 						'products_reference_key',
 						'Chiave Codice Produttore',
 						'products',
-						'Altri campi',
+						'Campo "Codice Produttore"',
 						'Indica il campo slug per il codice produttore del prodotto (Default: pa_reference)',
 					),
+					$this->buildCheckbox(
+						'products_reference_hidden',
+						'Nascosto',
+						'products',
+						'Campo "Codice Produttore"',
+					),
+
+					// Marca
 					$this->buildField(
 						'products_brand_key',
-						'Chiave Marca',
+						'Chiave',
 						'products',
-						'Altri campi',
+						'Campo "Marca"',
 						'Indica il campo slug per le marche (Default: pa_marca)',
 					),
+					$this->buildCheckbox(
+						'products_brand_hidden',
+						'Nascosto',
+						'products',
+						'Campo "Marca"',
+					),
+
+					// In Evidenza
 					$this->buildField(
 						'products_featured_key',
-						'Chiave "In Evidenza"',
+						'Chiave',
 						'products',
-						'Altri campi',
+						'Campo "In Evidenza"',
 						'Indica il campo slug per il flag "In Evidenza" (Default: pa_in-evidenza)',
+					),
+					$this->buildCheckbox(
+						'products_featured_hidden',
+						'Nascosto',
+						'products',
+						'Campo "In Evidenza"',
 					),
 
 					// Products Don't Sync Settings

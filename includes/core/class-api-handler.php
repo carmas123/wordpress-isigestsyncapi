@@ -124,6 +124,11 @@ class ApiHandler {
 		}
 	}
 
+	// PINGO - PONG
+	public function handlePing() {
+		return ['pong' => 'pong'];
+	}
+
 	/**
 	 * Recupera i prodotti da ricevere.
 	 *

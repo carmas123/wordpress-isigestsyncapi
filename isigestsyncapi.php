@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ISIGest Sync API
  * Description: Plugin per la sincronizzazione dei prodotti tramite API
- * Version: 1.0.16
+ * Version: 1.0.23
  * Author: ISIGest S.r.l.
  * Author URI: https://www.isigest.net
  *
@@ -14,13 +14,16 @@
 
 namespace ISIGestSyncAPI;
 
+use ISIGestSyncAPI\Core\ConfigHelper;
+use ISIGestSyncAPI\Core\UpgradeHelper;
+
 // Se questo file viene chiamato direttamente, termina.
 if (!defined('ABSPATH')) {
 	exit();
 }
 
 // Definizioni costanti
-define('ISIGESTSYNCAPI_VERSION', '1.0.16');
+define('ISIGESTSYNCAPI_VERSION', '1.0.23');
 define('ISIGESTSYNCAPI_PLUGIN_FILE', __FILE__);
 define('ISIGESTSYNCAPI_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ISIGESTSYNCAPI_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -138,7 +141,11 @@ class Plugin {
 	public function init() {
 		$this->loadDependencies();
 		$this->registerHooks();
-		$this->registerCustomTables();
+
+		// Gestione Aggiornamenti
+		if (is_admin() && ConfigHelper::getDbNeedToBeUpgrade()) {
+			$this->upgradeDb();
+		}
 
 		// Inizializza il router delle API
 		$this->router = new Core\Router();
@@ -177,86 +184,6 @@ class Plugin {
 	}
 
 	/**
-	 * Registra le tabelle personalizzate del database.
-	 *
-	 * @since  1.0.0
-	 * @access private
-	 */
-	private function registerCustomTables() {
-		global $wpdb;
-		$charset_collate = $wpdb->get_charset_collate();
-		$p = $wpdb->prefix;
-
-		$sql = [];
-
-		// Tabella per la storicizzazione dei prodotti
-		$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}isi_api_product` (
-			`post_id` int(10) NOT NULL,                    		/* ID del post WooCommerce */
-			`variation_id` int(10) NOT NULL DEFAULT 0,     		/* ID della variazione WooCommerce */
-			`sku` char(5) NOT NULL,                       		/* SKU del prodotto */
-			`is_tc` tinyint(1) NOT NULL DEFAULT 0,      	  	/* Indica se è un prodotto a taglie&colori */
-			`fascia_sconto_art` char(3) DEFAULT NULL,    	    /* Gruppo sconto */
-			`gruppo_merc` char(3) DEFAULT NULL,      	 	  	/* Gruppo merceologico */
-			`sottogruppo_merc` char(3) DEFAULT NULL,     		/* Sottogruppo merceologico */
-			`marca` char(32) DEFAULT NULL,                		/* Marca */
-			`stagione` char(32) DEFAULT NULL,                	/* Stagione */
-			`anno` int(4) DEFAULT NULL,                     	/* Anno */
-			`unit` char(2) DEFAULT NULL,                  	/* Unità di misura */
-			`unit_conversion` decimal(15,6) DEFAULT 1.000000, 	/* Conversione unità */
-			`secondary_unit` char(2) DEFAULT NULL,        		/* Unità secondaria */
-			`use_secondary_unit` tinyint(1) DEFAULT 0,        	/* Usa unità secondaria */
-			PRIMARY KEY (`sku`)
-		) $charset_collate;";
-
-		$sql[] =
-			'ALTER TABLE `' .
-			$p .
-			'isi_api_product` ADD INDEX idx_isi_api_product_1 (`post_id`) USING BTREE;';
-		$sql[] =
-			'ALTER TABLE `' .
-			$p .
-			'isi_api_product` ADD UNIQUE INDEX idx_isi_api_product_2 (`post_id`, `variation_id`) USING BTREE;';
-
-		// Tabella per lo storico dello stock
-		$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}isi_api_stock` (
-			`post_id` bigint(20) NOT NULL,
-			`variation_id` bigint(20) NOT NULL DEFAULT 0,
-			`sku` varchar(64) NOT NULL,
-			`warehouse` varchar(32) NOT NULL,
-			`stock_quantity` int(11) NOT NULL DEFAULT 0,
-			`stock_status` varchar(32) DEFAULT 'instock',     /* Stato stock WooCommerce */
-			PRIMARY KEY (`post_id`,`variation_id`,`warehouse`),
-			KEY `IDX_SKU` (`sku`)
-		) $charset_collate;";
-
-		// Tabella per l'export dei prodotti
-		$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}isi_api_export_product` (
-			`post_id` bigint(20) NOT NULL,
-			`is_exported` tinyint(1) NOT NULL DEFAULT 0,
-			`exported_at` datetime DEFAULT NULL,
-			PRIMARY KEY (`post_id`)
-		) $charset_collate;";
-
-		// Tabella per il multimagazzino
-		$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}isi_api_warehouse` (
-			`post_id` bigint(20) NOT NULL,
-			`variation_id` bigint(20) NOT NULL DEFAULT 0,
-			`warehouse` varchar(32) NOT NULL,
-			`stock_quantity` int(11) NOT NULL DEFAULT 0,
-			`stock_status` varchar(32) DEFAULT 'instock',
-			`manage_stock` tinyint(1) DEFAULT 1,             /* Gestione stock WooCommerce */
-			`updated_at` datetime DEFAULT NULL,
-			PRIMARY KEY (`post_id`,`variation_id`,`warehouse`),
-			KEY `IDX_WAREHOUSE` (`warehouse`)
-		) $charset_collate;";
-
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		foreach ($sql as $query) {
-			dbDelta($query);
-		}
-	}
-
-	/**
 	 * Inizializza l'integrazione con WooCommerce.
 	 *
 	 * @since  1.0.0
@@ -284,7 +211,7 @@ class Plugin {
 	 * @access public
 	 */
 	public function activate() {
-		$this->registerCustomTables();
+		$this->upgradeDb();
 		flush_rewrite_rules();
 	}
 
@@ -309,7 +236,7 @@ class Plugin {
 			'<a href="' .
 			admin_url('admin.php?page=isigestsyncapi-settings') .
 			'">' .
-			__('Settings', 'isigestsyncapi') .
+			__('Impostazioni', 'isigestsyncapi') .
 			'</a>';
 		array_unshift($links, $settings_link);
 		return $links;
@@ -349,14 +276,14 @@ class Plugin {
 			'isigestsyncapi-admin',
 			plugin_dir_url(ISIGESTSYNCAPI_PLUGIN_FILE) . 'assets/css/admin.css',
 			[],
-			'1.0.0',
+			ISIGESTSYNCAPI_VERSION,
 		);
 
 		wp_enqueue_script(
 			'isigestsyncapi-admin',
 			plugin_dir_url(ISIGESTSYNCAPI_PLUGIN_FILE) . 'assets/js/admin.js',
 			['jquery'],
-			'1.0.0',
+			ISIGESTSYNCAPI_VERSION,
 			true,
 		);
 
@@ -378,6 +305,12 @@ class Plugin {
 
 		$settings = new Admin\Settings();
 		$settings->renderSettingsPage();
+	}
+
+	// Gestione Aggiornamento Database
+	public function upgradeDb() {
+		$helper = new UpgradeHelper();
+		$helper->performUpgrade();
 	}
 }
 
