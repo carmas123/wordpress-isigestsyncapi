@@ -188,7 +188,7 @@ class Utilities {
 			$message = print_r($message, true);
 		}
 
-		$log_file = WP_CONTENT_DIR . '/debug-isigestsyncapi.log';
+		$log_file = WP_CONTENT_DIR . '/isigestsyncapi-debug.log';
 		$date = date('Y-m-d H:i:s');
 		$formatted_message = sprintf("[%s] [%s] %s\n", $date, strtoupper($type), $message);
 

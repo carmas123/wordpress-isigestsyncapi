@@ -38,6 +38,12 @@ class Settings {
 	 * @var string
 	 */
 	private $active_tab;
+	/**
+	 * Percorso del file di debug log.
+	 *
+	 * @var string
+	 */
+	private $debug_log_file;
 
 	/**
 	 * Costruttore.
@@ -46,6 +52,7 @@ class Settings {
 		$this->helper = new SettingsHelper();
 		$this->config = ConfigHelper::getInstance();
 		$this->active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'general';
+		$this->debug_log_file = WP_CONTENT_DIR . '/isigestsyncapi-debug.log';
 
 		add_action('wp_ajax_isigestsyncapi_save_settings', [$this, 'ajaxSaveSettings']);
 	}
@@ -191,7 +198,7 @@ class Settings {
 	 * @return array La struttura delle impostazioni
 	 */
 	public function getFormFields() {
-		return [
+		$fields = [
 			'form' => [
 				'legend' => [
 					'title' => __('Impostazioni ISIGest Sync API', 'isigestsyncapi'),
@@ -436,6 +443,35 @@ class Settings {
 				],
 			],
 		];
+
+		// Carica il contenuto del debug log da file
+		foreach ($fields['form']['input'] as &$input) {
+			if ($input['name'] === 'debug_log') {
+				$input['value'] = $this->readDebugLog();
+			}
+		}
+
+		return $fields;
+	}
+
+	/**
+	 * Legge il contenuto del file di debug log.
+	 *
+	 * @return string Il contenuto del file di log o un messaggio se il file è vuoto/non esiste
+	 */
+	private function readDebugLog() {
+		if (!file_exists($this->debug_log_file)) {
+			return __('Nessun log disponibile', 'isigestsyncapi');
+		}
+
+		$content = file_get_contents($this->debug_log_file);
+		if (empty($content)) {
+			return __('Il file di log è vuoto', 'isigestsyncapi');
+		}
+
+		// Leggi solo le ultime 1000 righe per evitare di caricare file troppo grandi
+		$lines = array_slice(explode("\n", $content), -1000);
+		return implode("\n", $lines);
 	}
 
 	/**
@@ -462,6 +498,11 @@ class Settings {
 
 		if (is_array($input)) {
 			foreach ($input as $key => $value) {
+				// Salta il campo debug_log poiché è gestito tramite file
+				if ($key === 'debug_log') {
+					continue;
+				}
+
 				if (is_bool($value) || $value === '1' || $value === '0') {
 					$settings[$key] = (bool) $value;
 				} else {
