@@ -198,11 +198,10 @@ class SettingsHelper {
         <?php
 	}
 
-	/**
-	 * Renderizza un campo textarea
-	 */
 	private function renderTextareaField($field) {
-		?>
+		$field = wp_parse_args($field, [
+			'buttons' => [],
+		]); ?>
         <tr>
             <th scope="row">
                 <label for="<?php echo esc_attr(
@@ -210,19 +209,57 @@ class SettingsHelper {
                 ); ?>"><?php echo esc_html($field['label']); ?></label>
             </th>
             <td>
-                <textarea
-                    name="isigestsyncapi_settings[<?php echo esc_attr($field['name']); ?>]"
-                    id="<?php echo esc_attr($field['name']); ?>"
-                    class="large-text code"
-                    rows="10"
-                    <?php echo $field['readonly'] ? 'readonly' : ''; ?>
-                    <?php echo $field['disabled'] ? 'disabled' : ''; ?>
-                ><?php echo esc_textarea($field['value']); ?></textarea>
-                <?php if (!empty($field['description'])): ?>
-                    <p class="description"><?php echo esc_html($field['description']); ?></p>
-                <?php endif; ?>
+                <div class="textarea-container">
+                    <textarea
+                        name="isigestsyncapi_settings[<?php echo esc_attr($field['name']); ?>]"
+                        id="<?php echo esc_attr($field['name']); ?>"
+                        class="large-text code"
+                        rows="10"
+                        <?php echo $field['readonly'] ? 'readonly' : ''; ?>
+                        <?php echo $field['disabled'] ? 'disabled' : ''; ?>
+                    ><?php echo esc_textarea($field['value']); ?></textarea>
+                    
+                    <?php if (!empty($field['buttons'])): ?>
+                        <div class="button-container" style="margin-top: 10px;">
+                            <?php foreach ($field['buttons'] as $button): ?>
+                                <button type="button" 
+                                    class="<?php echo esc_attr($button['class']); ?>"
+                                    <?php if (isset($button['data-action'])): ?>
+                                        data-action="<?php echo esc_attr(
+                                        	$button['data-action'],
+                                        ); ?>"
+                                    <?php endif; ?>
+									<?php if (isset($button['id'])): ?>
+                                        id="<?php echo esc_attr($button['id']); ?>"
+                                    <?php endif; ?>
+                                >
+                                    <?php echo esc_html($button['label']); ?>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($field['description'])): ?>
+                        <p class="description"><?php echo esc_html($field['description']); ?></p>
+                    <?php endif; ?>
+                </div>
             </td>
         </tr>
+
+        <?php if (!empty($field['buttons'])): ?>
+        <style>
+            .textarea-container {
+                position: relative;
+            }
+            .button-container {
+                display: flex;
+                gap: 10px;
+            }
+            .button-container button {
+                margin: 0;
+            }
+        </style>
+        <?php endif; ?>
         <?php
 	}
 

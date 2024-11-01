@@ -180,7 +180,7 @@ class Utilities {
 	 * @return void
 	 */
 	public static function log($message, $type = 'info'): void {
-		if (!self::logEnabled() || $type === 'error') {
+		if (!self::logEnabled() && $type !== 'error') {
 			return;
 		}
 

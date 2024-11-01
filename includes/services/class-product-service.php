@@ -453,7 +453,7 @@ class ProductService extends BaseService {
 			try {
 				$result[] = $this->get($product->ID);
 			} catch (\Exception $e) {
-				Utilities::log($e->getMessage(), 'error');
+				Utilities::logError($e->getMessage());
 			}
 		}
 
@@ -774,10 +774,9 @@ class ProductService extends BaseService {
 				]);
 
 				if (is_wp_error($result)) {
-					Utilities::log(
+					Utilities::logError(
 						"Errore nella creazione della categoria '$category_name': " .
 							$result->get_error_message(),
-						'error',
 					);
 					return null;
 				}

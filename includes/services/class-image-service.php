@@ -22,6 +22,17 @@ use ISIGestSyncAPI\Core\ISIGestSyncApiBadRequestException;
  */
 class ImageService {
 	/**
+	 * Carica le dipendenze necessarie per la gestione dei media
+	 */
+	private function loadMediaDependencies() {
+		if (!function_exists('media_handle_sideload')) {
+			require_once ABSPATH . 'wp-admin/includes/media.php';
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+			require_once ABSPATH . 'wp-admin/includes/image.php';
+		}
+	}
+
+	/**
 	 * Gestisce l'upload di un'immagine per un prodotto o una sua variante.
 	 *
 	 * @param integer $product_id ID del prodotto.
@@ -105,6 +116,9 @@ class ImageService {
 	 * @throws ISIGestSyncApiException Se si verifica un errore durante l'upload.
 	 */
 	private function uploadToMediaLibrary($file_array, $product_id) {
+		// Carica le dipendenze solo quando servono
+		$this->loadMediaDependencies();
+
 		// Verifichiamo il tipo di file
 		$filetype = wp_check_filetype(basename($file_array['name']), null);
 		if (!$filetype['type'] || !in_array($filetype['type'], $this->getAllowedMimeTypes())) {
@@ -184,6 +198,9 @@ class ImageService {
 	 * @return void
 	 */
 	private function optimizeImage($attachment_id) {
+		// Carica le dipendenze solo quando servono
+		$this->loadMediaDependencies();
+
 		// Genera le dimensioni delle miniature
 		$metadata = wp_generate_attachment_metadata(
 			$attachment_id,

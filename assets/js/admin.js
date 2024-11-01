@@ -12,42 +12,6 @@ jQuery(document).ready(function ($) {
 			.appendTo('body');
 	}
 
-	// Gestiamo il salvataggio delle impostazioni
-	$('form[action="options.php"]').on('submit', function (e) {
-		e.preventDefault();
-
-		var $form = $(this);
-		var $submitButton = $('#submit');
-		var originalButtonText = $submitButton.val();
-
-		// Disabilita il pulsante durante il salvataggio
-		$submitButton.val('Salvataggio...').prop('disabled', true);
-
-		$.ajax({
-			url: isigestsyncapi.ajaxurl,
-			type: 'POST',
-			data: {
-				action: 'isigestsyncapi_save_settings',
-				nonce: isigestsyncapi.nonce,
-				formData: $form.serialize()
-			},
-			success: function (response) {
-				if (response.success) {
-					showNotice('success', response.data.message);
-				} else {
-					showNotice('error', response.data.message || 'Errore durante il salvataggio');
-				}
-			},
-			error: function () {
-				showNotice('error', 'Si è verificato un problema');
-			},
-			complete: function () {
-				// Ripristina il testo originale del pulsante
-				$submitButton.val(originalButtonText).prop('disabled', false);
-			}
-		});
-	});
-
 	function showNotice(type, message) {
 		var icon = type === 'success' ? '✓' : '⚠';
 		var backgroundColor = type === 'success' ? '#4CAF50' : '#f44336';
@@ -128,4 +92,98 @@ jQuery(document).ready(function ($) {
 				$(this).remove();
 			});
 	}
+
+	// Gestiamo il salvataggio delle impostazioni
+	$('form[action="options.php"]').on('submit', function (e) {
+		e.preventDefault();
+
+		var $form = $(this);
+		var $submitButton = $('#submit');
+		var originalButtonText = $submitButton.val();
+
+		// Disabilita il pulsante durante il salvataggio
+		$submitButton.val('Salvataggio...').prop('disabled', true);
+
+		$.ajax({
+			url: isigestsyncapi.ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'isigestsyncapi_save_settings',
+				nonce: isigestsyncapi.nonce,
+				formData: $form.serialize()
+			},
+			success: function (response) {
+				if (response.success) {
+					showNotice('success', response.data.message);
+				} else {
+					showNotice('error', response.data.message || 'Errore durante il salvataggio');
+				}
+			},
+			error: function () {
+				showNotice('error', 'Si è verificato un problema');
+			},
+			complete: function () {
+				// Ripristina il testo originale del pulsante
+				$submitButton.val(originalButtonText).prop('disabled', false);
+			}
+		});
+	});
+
+	// Handler per il pulsante "Azzera log"
+	$('#isi_debug_log_clear').on('click', function (e) {
+		e.preventDefault();
+		if (!confirm('Sei sicuro di voler azzerare il log?')) {
+			return;
+		}
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'isigestsyncapi_clear_log',
+				nonce: isigestsyncapi.nonce
+			},
+			success: function (response) {
+				if (response.success) {
+					$('#debug_log').val(response.data.content);
+					showNotice('success', 'Log azzerato con successo');
+				} else {
+					showNotice(
+						'error',
+						response.data.message || "Errore durante l'azzeramento del log"
+					);
+				}
+			},
+			error: function () {
+				showNotice('error', 'Si è verificato un problema');
+			}
+		});
+	});
+
+	// Handler per il pulsante "Aggiorna"
+	$('#isi_debug_log_refresh').on('click', function (e) {
+		e.preventDefault();
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'isigestsyncapi_refresh_log',
+				nonce: isigestsyncapi.nonce
+			},
+			success: function (response) {
+				if (response.success) {
+					$('#debug_log').val(response.data.content);
+				} else {
+					showNotice(
+						'error',
+						response.data.message || "Errore durante l'aggiornamento del log"
+					);
+				}
+			},
+			error: function () {
+				showNotice('error', 'Si è verificato un problema');
+			}
+		});
+	});
 });

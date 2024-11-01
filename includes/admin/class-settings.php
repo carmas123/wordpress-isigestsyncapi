@@ -55,6 +55,8 @@ class Settings {
 		$this->debug_log_file = WP_CONTENT_DIR . '/isigestsyncapi-debug.log';
 
 		add_action('wp_ajax_isigestsyncapi_save_settings', [$this, 'ajaxSaveSettings']);
+		add_action('wp_ajax_isigestsyncapi_clear_log', [$this, 'ajaxClearLog']);
+		add_action('wp_ajax_isigestsyncapi_refresh_log', [$this, 'ajaxRefreshLog']);
 	}
 
 	/**
@@ -429,27 +431,36 @@ class Settings {
 						'Debug',
 						'Abilita il log dettagliato per il debug',
 					),
-					$this->buildTextarea(
-						'debug_log',
-						'Log di debug',
-						'advanced',
-						'Debug',
-						'Log delle operazioni recenti',
-						true,
-					),
+					[
+						'type' => 'textarea',
+						'label' => __('Log di debug', 'isigestsyncapi'),
+						'name' => 'debug_log',
+						'readonly' => true,
+						'description' => __('Log delle operazioni recenti', 'isigestsyncapi'),
+						'tab' => 'advanced',
+						'section' => 'Debug',
+						'value' => $this->readDebugLog(),
+						'buttons' => [
+							[
+								'id' => 'isi_debug_log_clear',
+								'label' => __('Azzera log', 'isigestsyncapi'),
+								'class' => 'button clear-log',
+								'data-action' => 'clear',
+							],
+							[
+								'id' => 'isi_debug_log_refresh',
+								'label' => __('Aggiorna', 'isigestsyncapi'),
+								'class' => 'button refresh-log',
+								'data-action' => 'refresh',
+							],
+						],
+					],
 				],
 				'submit' => [
 					'title' => __('Salva', 'isigestsyncapi'),
 				],
 			],
 		];
-
-		// Carica il contenuto del debug log da file
-		foreach ($fields['form']['input'] as &$input) {
-			if ($input['name'] === 'debug_log') {
-				$input['value'] = $this->readDebugLog();
-			}
-		}
 
 		return $fields;
 	}
@@ -472,6 +483,56 @@ class Settings {
 		// Leggi solo le ultime 1000 righe per evitare di caricare file troppo grandi
 		$lines = array_slice(explode("\n", $content), -1000);
 		return implode("\n", $lines);
+	}
+
+	/**
+	 * Azzera il contenuto del file di debug log.
+	 *
+	 * @return bool True se l'operazione è riuscita, False altrimenti
+	 */
+	private function clearDebugLog() {
+		return file_put_contents($this->debug_log_file, '') !== false;
+	}
+
+	/**
+	 * Gestisce la richiesta AJAX per azzerare il log.
+	 */
+	public function ajaxClearLog() {
+		check_ajax_referer('isigestsyncapi-settings', 'nonce');
+
+		if (!current_user_can('manage_options')) {
+			wp_send_json_error([
+				'message' => __('Non autorizzato', 'isigestsyncapi'),
+			]);
+		}
+
+		if ($this->clearDebugLog()) {
+			wp_send_json_success([
+				'message' => __('Log azzerato con successo', 'isigestsyncapi'),
+				'content' => __('Il file di log è vuoto', 'isigestsyncapi'),
+			]);
+		} else {
+			wp_send_json_error([
+				'message' => __('Impossibile azzerare il log', 'isigestsyncapi'),
+			]);
+		}
+	}
+
+	/**
+	 * Gestisce la richiesta AJAX per aggiornare il contenuto del log.
+	 */
+	public function ajaxRefreshLog() {
+		check_ajax_referer('isigestsyncapi-settings', 'nonce');
+
+		if (!current_user_can('manage_options')) {
+			wp_send_json_error([
+				'message' => __('Non autorizzato', 'isigestsyncapi'),
+			]);
+		}
+
+		wp_send_json_success([
+			'content' => $this->readDebugLog(),
+		]);
 	}
 
 	/**

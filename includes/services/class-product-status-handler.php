@@ -61,7 +61,6 @@ class ProductStatusHandler extends BaseService {
 					$current_status,
 					$new_status,
 				),
-				'info',
 			);
 
 			// Aggiorniamo lo stato del Padre
@@ -142,7 +141,6 @@ class ProductStatusHandler extends BaseService {
 					'Stato prodotto padre %d impostato a draft perché tutte le varianti sono disattivate',
 					$parent_id,
 				),
-				'info',
 			);
 
 			return true;
@@ -159,7 +157,6 @@ class ProductStatusHandler extends BaseService {
 					'Stato prodotto padre %d impostato a publish perché almeno una variante è attiva',
 					$parent_id,
 				),
-				'info',
 			);
 
 			return true;

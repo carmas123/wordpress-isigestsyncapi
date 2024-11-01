@@ -12,10 +12,17 @@ namespace ISIGestSyncAPI\Core;
 use ISIGestSyncAPI\Common\BaseConfig;
 
 class UpgradeHelper extends BaseConfig {
+	private const LOCK_KEY = 'isigestsyncapi_upgrade_lock';
+
 	public function __construct() {
 		parent::__construct();
 	}
 
+	/**
+	 * Esegue l'upgrade del plugin con meccanismo di lock
+	 *
+	 * @return bool True se l'upgrade è stato eseguito, False se era già in esecuzione
+	 */
 	public function performUpgrade() {
 		// Leggiamo la versione corrente del database
 		$current = ConfigHelper::getDbVersion();
@@ -23,78 +30,83 @@ class UpgradeHelper extends BaseConfig {
 		$new = ISIGESTSYNCAPI_VERSION;
 
 		if ($current != $new) {
-			$upgrade_path = ISIGESTSYNCAPI_PLUGIN_DIR . 'upgrade/';
-			$files = scandir($upgrade_path);
+			// Verifica se c'è già un lock attivo
+			if ($this->isUpgradeRunning()) {
+				Utilities::log('ISIGestSyncAPI: Upgrade già in esecuzione');
+				return false;
+			}
 
-			$versions = [];
+			try {
+				// Imposta il lock
+				update_option(self::LOCK_KEY, time(), false);
 
-			foreach ($files as $file) {
-				if (strpos($file, 'upgrade-') === 0) {
-					$version_file = str_replace(['upgrade-', '.php'], '', $file);
-					if (version_compare($version_file, $current, '>')) {
-						$versions[] = $version_file;
+				$upgrade_path = ISIGESTSYNCAPI_PLUGIN_DIR . 'upgrade/';
+				$files = scandir($upgrade_path);
+
+				$versions = [];
+
+				foreach ($files as $file) {
+					if (strpos($file, 'upgrade-') === 0) {
+						$version_file = str_replace(['upgrade-', '.php'], '', $file);
+						if (version_compare($version_file, $current, '>')) {
+							$versions[] = $version_file;
+						}
 					}
 				}
-			}
 
-			// Ordiniamo le versioni usando version_compare
-			usort($versions, 'version_compare');
+				// Ordiniamo le versioni usando version_compare
+				usort($versions, 'version_compare');
 
-			// Ora creiamo ed eseguiamo i metodi nell'ordine corretto
-			foreach ($versions as $version) {
-				require_once $upgrade_path . 'upgrade-' . $version . '.php';
-				$method = 'isigestsyncapi_upgrade_' . str_replace('.', '_', $version);
-
-				if (function_exists($method)) {
-					call_user_func($method);
+				// Ora creiamo ed eseguiamo i metodi nell'ordine corretto
+				foreach ($versions as $version) {
+					// @unlink($upgrade_path . 'upgrade-' . $version . '.php');
+					require_once $upgrade_path . 'upgrade-' . $version . '.php';
+					$method = 'isigestsyncapi_upgrade_' . str_replace('.', '_', $version);
+					if (function_exists($method)) {
+						call_user_func($method);
+					}
 				}
 
-				// Aggiorniamo la versione del database dopo gli upgrade
-				ConfigHelper::setDbVersion($new);
+				// Aggiorniamo ora all'ultima versione, quella del plugin
+				ConfigHelper::setDbVersionCurrent();
+
+				return true;
+			} catch (\Exception $e) {
+				Utilities::logError(
+					'ISIGestSyncAPI: Errore critico durante l\'upgrade: ' . $e->getMessage(),
+				);
+				return false;
+			} finally {
+				// Rimuovi sempre il lock alla fine, anche in caso di errori
+				delete_option(self::LOCK_KEY);
 			}
-
-			// Aggiorniamo ora all'ulitma versione, quella del plugin
-			ConfigHelper::setDbVersionCurrent();
 		}
+
+		return true; // Non c'era bisogno di upgrade
 	}
 
 	/**
-	 * Utility per trovare un prodotto tramite SKU.
+	 * Verifica se c'è un upgrade in corso
 	 *
-	 * @param string $sku Lo SKU da cercare.
-	 * @return integer|null
+	 * @return bool True se un upgrade è in corso, False altrimenti
 	 */
-	protected function findProductBySku($sku) {
-		global $wpdb;
+	public function isUpgradeRunning() {
+		$lock_timeout = 300; // 5 minuti
 
-		$result = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT CASE WHEN variation_id IS NOT NULL AND variation_id IS NOT NULL THEN variation_id ELSE post_id END AS product_id 
-                FROM {$wpdb->prefix}isi_api_product 
-                WHERE sku = %s",
-				$sku,
-			),
-		);
+		$lock_data = get_option(self::LOCK_KEY);
+		if (!$lock_data) {
+			return false;
+		}
 
-		return $result ? (int) $result : null;
+		$lock_time = (int) $lock_data;
+		return time() - $lock_time < $lock_timeout;
 	}
 
 	/**
-	 * Utility per trovare un prodotto tramite SKU in WooCommerce.
-	 *
-	 * @param string $sku Lo SKU da cercare.
-	 * @param boolean $include_variants Flag per includere le variazioni.
-	 * @return integer|null
+	 * Forza la rimozione del lock dell'upgrade
+	 * Da usare con cautela, solo se si è sicuri che non ci siano upgrade in corso
 	 */
-	protected function findProductByWCSku($sku, $include_variants = true) {
-		// Prima cerca tra i prodotti normali
-		$product_id = wc_get_product_id_by_sku($sku);
-
-		// Se non trova nulla, cerca tra le varianti
-		if ($include_variants && !$product_id) {
-			$product_id = $this->findVariationBySku($sku);
-		}
-
-		return $product_id;
+	public function forceClearUpgradeLock() {
+		delete_option(self::LOCK_KEY);
 	}
 }
