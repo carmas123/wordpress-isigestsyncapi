@@ -128,7 +128,7 @@ class StockService extends BaseService {
 	 * @return void
 	 */
 	public static function updateProductStock($product_id, $data) {
-		if (!self::syncEnabled()) {
+		if (!self::syncEnabled() || !$product_id) {
 			return;
 		}
 

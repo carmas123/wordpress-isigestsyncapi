@@ -759,34 +759,69 @@ class ProductService extends BaseService {
 
 			// Rimuoviamo gli spazi iniziali e finali
 			$category_name = trim($category_name);
+			$category_slug = wc_sanitize_taxonomy_name($category_name);
 			$category_name = htmlentities($category_name);
 
 			// Azzeriamo il Category Id (Importante altrimenti potrebbe rimanere quello del padre)
 			$category_id = 0;
 
-			$full_path .= ($full_path ? '>' : '') . $category_name;
+			$found = false;
 
-			// Cerca tutte le categorie con questo nome
+			// Ricerca Tramite Slug
 			$existing_terms = get_terms([
 				'taxonomy' => 'product_cat',
-				'name' => $category_name,
+				'slug' => $category_slug,
 				'hide_empty' => false,
 				'parent' => $parent_id,
 			]);
 
 			if (!empty($existing_terms) && !is_wp_error($existing_terms)) {
+				// Impostiamo il path
+				$find_full_path = ($full_path ? $full_path . '>' : '') . $category_slug;
+
 				// Verifica se una delle categorie trovate corrisponde al percorso completo
 				foreach ($existing_terms as $term) {
-					if ($this->validateCategoryPath($term->term_id, $full_path)) {
+					if ($this->validateCategoryPath($term->term_id, $find_full_path)) {
 						$category_id = $term->term_id;
+						$found = true;
 						break;
 					}
 				}
 			}
 
+			// Ricerca Tramite Nome
+			if (!$found) {
+				$existing_terms = get_terms([
+					'taxonomy' => 'product_cat',
+					'name' => $category_name,
+					'hide_empty' => false,
+					'parent' => $parent_id,
+				]);
+
+				if (!empty($existing_terms) && !is_wp_error($existing_terms)) {
+					// Verifica se una delle categorie trovate corrisponde al percorso completo
+					foreach ($existing_terms as $term) {
+						// Impostiamo il path
+						$find_full_path = ($full_path ? $full_path . '>' : '') . $term->slug;
+
+						if ($this->validateCategoryPath($term->term_id, $find_full_path)) {
+							// Riassegnamo lo Slug dalla Categoria Trovata tramite nome
+							$category_slug = $term->slug;
+							$category_id = $term->term_id;
+							$found = true;
+							break;
+						}
+					}
+				}
+			}
+
+			// Reimpostiamo il Path corretto
+			$full_path .= ($full_path ? '>' : '') . $category_slug;
+
 			// Se non è stata trovata una categoria valida, creane una nuova
-			if (empty($category_id)) {
+			if (!$found) {
 				$result = wp_insert_term($category_name, 'product_cat', [
+					'slug' => $category_slug,
 					'parent' => $parent_id,
 				]);
 
@@ -826,7 +861,7 @@ class ProductService extends BaseService {
 				return false;
 			}
 
-			$actual_path = $term->name . ($actual_path ? '>' . $actual_path : '');
+			$actual_path = $term->slug . ($actual_path ? '>' . $actual_path : '');
 			$current_term_id = $term->parent;
 		}
 

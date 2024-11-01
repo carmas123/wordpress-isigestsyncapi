@@ -169,7 +169,7 @@ class Utilities {
 	}
 
 	public static function logEnabled(): bool {
-		return !ConfigHelper::getInstance()->get('enable_debug', false);
+		return ConfigHelper::getInstance()->get('enable_debug', false);
 	}
 
 	/**
