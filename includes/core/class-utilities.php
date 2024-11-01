@@ -180,7 +180,7 @@ class Utilities {
 	 * @return void
 	 */
 	public static function log($message, $type = 'info'): void {
-		if (!self::logEnabled() && $type !== 'error') {
+		if (!self::logEnabled() && $type !== 'error' && $type !== 'warning') {
 			return;
 		}
 
@@ -203,6 +203,44 @@ class Utilities {
 	 */
 	public static function logError($message): void {
 		self::log($message, 'error');
+	}
+
+	/**
+	 * Log di un attenzione.
+	 *
+	 * @param mixed  $message Il messaggio.
+	 * @return void
+	 */
+	public static function logWarn($message): void {
+		self::log($message, 'warning');
+	}
+
+	/**
+	 * Log per gestire gli errori del database.
+	 *
+	 * @param int|bool $result
+	 * @return int|bool
+	 */
+	public static function logDbResult($result) {
+		global $wpdb;
+		if ($result === false) {
+			self::logError($wpdb->last_error . "\nQuery:\n" . $wpdb->last_query);
+		}
+		return $result;
+	}
+
+	/**
+	 * Log per gestire gli errori del database.
+	 *
+	 * @param mixed $result
+	 * @return mixed
+	 */
+	public static function logDbResultN($result) {
+		global $wpdb;
+		if (!empty($wpdb->last_error) && ($result === false || $result === null)) {
+			self::logError($wpdb->last_error . "\nQuery:\n" . $wpdb->last_query);
+		}
+		return $result;
 	}
 
 	/**

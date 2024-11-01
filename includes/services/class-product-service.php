@@ -108,6 +108,11 @@ class ProductService extends BaseService {
 		// Salviamo il prodotto
 		$product->save();
 
+		// Log
+		Utilities::log(
+			'Creazione/Aggiornamento prodotto: ' . $product->get_id() . ' - SKU: ' . $data['sku'],
+		);
+
 		// Storicizziamo il prodotto
 		$this->historyProduct($product->get_id(), 0, $isigest);
 
@@ -377,30 +382,40 @@ class ProductService extends BaseService {
 
 		if (empty($data)) {
 			if (empty($variant_id)) {
-				$wpdb->delete($wpdb->prefix . 'isi_api_product', ['post_id' => $post_id], ['%d']);
+				Utilities::logDbResult(
+					$wpdb->delete(
+						$wpdb->prefix . 'isi_api_product',
+						['post_id' => $post_id],
+						['%d'],
+					),
+				);
 			} else {
-				$wpdb->delete(
-					$wpdb->prefix . 'isi_api_product',
-					['post_id' => $post_id, 'variation_id' => $variation_id],
-					['%d', '%d'],
+				Utilities::logDbResult(
+					$wpdb->delete(
+						$wpdb->prefix . 'isi_api_product',
+						['post_id' => $post_id, 'variation_id' => $variation_id],
+						['%d', '%d'],
+					),
 				);
 			}
 
 			return;
 		}
 
-		$wpdb->replace($wpdb->prefix . 'isi_api_product', [
-			'post_id' => $post_id,
-			'variation_id' => $variation_id,
-			'sku' => $data['sku'],
-			'is_tc' => isset($data['is_tc']) ? (int) $data['is_tc'] : 0,
-			'unit' => isset($data['unity']) ? $data['unity'] : null,
-			'unit_conversion' => isset($data['unitConversion']) ? $data['unitConversion'] : 1,
-			'secondary_unit' => isset($data['secondaryUnity']) ? $data['secondaryUnity'] : null,
-			'use_secondary_unit' => isset($data['useSecondaryUnity'])
-				? (int) $data['useSecondaryUnity']
-				: 0,
-		]);
+		Utilities::logDbResult(
+			$wpdb->replace($wpdb->prefix . 'isi_api_product', [
+				'post_id' => $post_id,
+				'variation_id' => $variation_id,
+				'sku' => $data['sku'],
+				'is_tc' => isset($data['is_tc']) ? (int) $data['is_tc'] : 0,
+				'unit' => isset($data['unity']) ? $data['unity'] : null,
+				'unit_conversion' => isset($data['unitConversion']) ? $data['unitConversion'] : 1,
+				'secondary_unit' => isset($data['secondaryUnity']) ? $data['secondaryUnity'] : null,
+				'use_secondary_unit' => isset($data['useSecondaryUnity'])
+					? (int) $data['useSecondaryUnity']
+					: 0,
+			]),
+		);
 	}
 
 	/**
@@ -427,6 +442,7 @@ class ProductService extends BaseService {
 			],
 			['%d', '%d', '%s'],
 		);
+		Utilities::logDbResult($result);
 
 		return $result !== false;
 	}
@@ -678,6 +694,7 @@ class ProductService extends BaseService {
 				$sku,
 			),
 		);
+		Utilities::logDbResultN($product_id);
 
 		return $product_id ? (int) $product_id : null;
 	}
@@ -779,6 +796,10 @@ class ProductService extends BaseService {
 							$result->get_error_message(),
 					);
 					return null;
+				} else {
+					Utilities::log(
+						"Creata categoria '$category_name' con ID: {$result['term_id']}",
+					);
 				}
 				$category_id = $result['term_id'];
 			}
@@ -1024,6 +1045,8 @@ class ProductService extends BaseService {
 			$this->updateVariationData($variation, $variant, (bool) $isigest['is_tc']);
 
 			$variation->save();
+
+			Utilities::log("Creata/Aggiornata variante: SKU {$sku}");
 
 			$processed_variations[] = $variation->get_id();
 

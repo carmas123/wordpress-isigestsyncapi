@@ -64,6 +64,16 @@ class UpgradeHelper extends BaseConfig {
 					$method = 'isigestsyncapi_upgrade_' . str_replace('.', '_', $version);
 					if (function_exists($method)) {
 						call_user_func($method);
+						Utilities::logWarn(
+							'Upgrade: Eseguito con successo verso la versione ' . $version,
+						);
+					} else {
+						Utilities::logError(
+							'Upgrde: Non è possibile trovare il metodo ' .
+								$method .
+								'per l\'upgrade ' .
+								$version,
+						);
 					}
 				}
 

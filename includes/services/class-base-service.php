@@ -10,6 +10,7 @@
 namespace ISIGestSyncAPI\Services;
 
 use ISIGestSyncAPI\Common\BaseConfig;
+use ISIGestSyncAPI\Core\Utilities;
 
 class BaseService extends BaseConfig {
 	public function __construct() {
@@ -33,6 +34,7 @@ class BaseService extends BaseConfig {
 				$sku,
 			),
 		);
+		Utilities::logDbResultN($result);
 
 		return $result ? (int) $result : null;
 	}

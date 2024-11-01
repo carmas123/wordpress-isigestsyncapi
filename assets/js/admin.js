@@ -136,6 +136,11 @@ jQuery(document).ready(function ($) {
 			return;
 		}
 
+		const $button = $(this);
+		const originalButtonText = $button.text();
+
+		$button.text('Attendere...').prop('disabled', true);
+
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',
@@ -156,6 +161,10 @@ jQuery(document).ready(function ($) {
 			},
 			error: function () {
 				showNotice('error', 'Si è verificato un problema');
+			},
+			complete: function () {
+				// Ripristina il testo originale del pulsante
+				$button.text(originalButtonText).prop('disabled', false);
 			}
 		});
 	});
@@ -163,6 +172,11 @@ jQuery(document).ready(function ($) {
 	// Handler per il pulsante "Aggiorna"
 	$('#isi_debug_log_refresh').on('click', function (e) {
 		e.preventDefault();
+
+		const $button = $(this);
+		const originalButtonText = $button.text();
+
+		$button.text('Attendere...').prop('disabled', true);
 
 		$.ajax({
 			url: ajaxurl,
@@ -183,6 +197,10 @@ jQuery(document).ready(function ($) {
 			},
 			error: function () {
 				showNotice('error', 'Si è verificato un problema');
+			},
+			complete: function () {
+				// Ripristina il testo originale del pulsante
+				$button.text(originalButtonText).prop('disabled', false);
 			}
 		});
 	});
