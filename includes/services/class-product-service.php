@@ -1008,9 +1008,13 @@ class ProductService extends BaseService {
 
 			$variation_id = $this->findProductBySku($sku) ?? $this->findVariationBySku($sku);
 
+			$variation = null;
 			if ($variation_id) {
 				$variation = wc_get_product($variation_id);
-			} else {
+			}
+
+			if (!$variation) {
+				// Creiamo una nuova variante
 				$variation = new \WC_Product_Variation();
 			}
 
