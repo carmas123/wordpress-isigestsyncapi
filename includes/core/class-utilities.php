@@ -190,9 +190,9 @@ class Utilities {
 
 		$log_file = WP_CONTENT_DIR . '/isigestsyncapi-debug.log';
 		$date = date('Y-m-d H:i:s');
-		$formatted_message = sprintf("[%s] [%s] %s\n", $date, strtoupper($type), $message);
+		$formatted_message = sprintf('[%s] [%s] %s', $date, strtoupper($type), $message);
 
-		error_log($formatted_message, 3, $log_file);
+		file_put_contents($log_file, $formatted_message . PHP_EOL, FILE_APPEND | LOCK_EX) !== false;
 	}
 
 	/**
