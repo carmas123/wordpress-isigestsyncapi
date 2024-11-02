@@ -2,9 +2,9 @@
 # This file is distributed under the same license as the ISIGest Sync API package.
 msgid ""
 msgstr ""
-"Project-Id-Version: ISIGest Sync API 1.0.49\n"
+"Project-Id-Version: ISIGest Sync API 1.0.52\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/isigestsyncapi\n"
-"POT-Creation-Date: 2024-11-02 13:50:27+00:00\n"
+"POT-Creation-Date: 2024-11-02 23:40:33+00:00\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -28,7 +28,7 @@ msgstr ""
 msgid "Salva funzioni"
 msgstr ""
 
-#: includes/admin/class-settings-helper.php:353
+#: includes/admin/class-settings-helper.php:369
 #. translators: %s: link alle impostazioni
 msgid ""
 "È necessario abilitare le Custom Order Tables di WooCommerce nelle "
@@ -36,141 +36,169 @@ msgid ""
 "altrimenti la ricezione degli ordini non funzionerà."
 msgstr ""
 
-#: includes/admin/class-settings.php:194
+#: includes/admin/class-settings.php:197
 msgid "Importa così com'è"
 msgstr ""
 
-#: includes/admin/class-settings.php:195
+#: includes/admin/class-settings.php:198
 msgid "Pulisci i tag html"
 msgstr ""
 
-#: includes/admin/class-settings.php:196 includes/admin/class-settings.php:235
+#: includes/admin/class-settings.php:199 includes/admin/class-settings.php:238
 msgid "Non importare"
 msgstr ""
 
-#: includes/admin/class-settings.php:232
+#: includes/admin/class-settings.php:235
 msgid "Nome"
 msgstr ""
 
-#: includes/admin/class-settings.php:233
+#: includes/admin/class-settings.php:236
 msgid "Tags"
 msgstr ""
 
-#: includes/admin/class-settings.php:234
+#: includes/admin/class-settings.php:237
 msgid "Descrizione breve"
 msgstr ""
 
-#: includes/admin/class-settings.php:252
+#: includes/admin/class-settings.php:255
 msgid "Definisci le funzioni PHP di trasformazione dei dati."
 msgstr ""
 
-#: includes/admin/class-settings.php:269
+#: includes/admin/class-settings.php:272
 msgid "Impostazioni ISIGest Sync API"
 msgstr ""
 
-#: includes/admin/class-settings.php:273
+#: includes/admin/class-settings.php:276
 msgid "Generale"
 msgstr ""
 
-#: includes/admin/class-settings.php:274
+#: includes/admin/class-settings.php:277
 msgid "Categorie"
 msgstr ""
 
-#: includes/admin/class-settings.php:275
+#: includes/admin/class-settings.php:278
 msgid "Prodotti"
 msgstr ""
 
-#: includes/admin/class-settings.php:276
+#: includes/admin/class-settings.php:279
 msgid "Prodotti (Blocca aggiornamento)"
 msgstr ""
 
-#: includes/admin/class-settings.php:277
+#: includes/admin/class-settings.php:280
 msgid "Taglie e Colori"
 msgstr ""
 
-#: includes/admin/class-settings.php:278
+#: includes/admin/class-settings.php:281
+msgid "Clienti"
+msgstr ""
+
+#: includes/admin/class-settings.php:282
+msgid "Ordini"
+msgstr ""
+
+#: includes/admin/class-settings.php:283
 msgid "Avanzate"
 msgstr ""
 
-#: includes/admin/class-settings.php:279
+#: includes/admin/class-settings.php:284
 msgid "Funzioni"
 msgstr ""
 
-#: includes/admin/class-settings.php:518
+#: includes/admin/class-settings.php:538
 msgid "Log"
 msgstr ""
 
-#: includes/admin/class-settings.php:521
+#: includes/admin/class-settings.php:541
 msgid "Log delle operazioni recenti"
 msgstr ""
 
-#: includes/admin/class-settings.php:528
+#: includes/admin/class-settings.php:548
 msgid "Azzera log"
 msgstr ""
 
-#: includes/admin/class-settings.php:534
+#: includes/admin/class-settings.php:554
 msgid "Aggiorna"
 msgstr ""
 
-#: includes/admin/class-settings.php:545
+#: includes/admin/class-settings.php:565
 msgid "Salva"
 msgstr ""
 
-#: includes/admin/class-settings.php:560
+#: includes/admin/class-settings.php:580
 msgid "Nessun log disponibile"
 msgstr ""
 
-#: includes/admin/class-settings.php:565 includes/admin/class-settings.php:597
+#: includes/admin/class-settings.php:585 includes/admin/class-settings.php:627
 msgid "Il file di log è vuoto"
 msgstr ""
 
-#: includes/admin/class-settings.php:590 includes/admin/class-settings.php:614
-#: includes/admin/class-settings.php:680 includes/admin/class-settings.php:717
+#: includes/admin/class-settings.php:609 includes/admin/class-settings.php:737
+#: includes/admin/class-settings.php:774
 msgid "Non autorizzato"
 msgstr ""
 
-#: includes/admin/class-settings.php:596
+#: includes/admin/class-settings.php:626
 msgid "Log azzerato con successo"
 msgstr ""
 
-#: includes/admin/class-settings.php:601
+#: includes/admin/class-settings.php:631
 msgid "Impossibile azzerare il log"
 msgstr ""
 
-#: includes/admin/class-settings.php:628
+#: includes/admin/class-settings.php:671
+msgid "Comando non valido"
+msgstr ""
+
+#: includes/admin/class-settings.php:676
+msgid "Comando eseguito con successo"
+msgstr ""
+
+#: includes/admin/class-settings.php:685
 msgid "You do not have sufficient permissions to access this page."
 msgstr ""
 
-#: includes/admin/class-settings.php:700
+#: includes/admin/class-settings.php:757
 msgid "Impostazioni salvate con successo"
 msgstr ""
 
-#: includes/admin/class-settings.php:705
+#: includes/admin/class-settings.php:762
 msgid "Nessuna impostazione da salvare"
 msgstr ""
 
-#: includes/admin/class-settings.php:731
+#: includes/admin/class-settings.php:788
 msgid "Errore durante il salvataggio del file"
 msgstr ""
 
-#: includes/admin/class-settings.php:736
+#: includes/admin/class-settings.php:793
 msgid "Funzioni salvate con successo"
 msgstr ""
 
-#: isigestsyncapi.php:101 isigestsyncapi.php:102
+#: isigestsyncapi.php:147 isigestsyncapi.php:148
 msgid "ISIGest Sync"
 msgstr ""
 
-#: isigestsyncapi.php:113 isigestsyncapi.php:114
+#: isigestsyncapi.php:159 isigestsyncapi.php:160
 msgid "Settings"
 msgstr ""
 
-#: isigestsyncapi.php:198
+#: isigestsyncapi.php:244
 msgid "ISIGest Sync API richiede WooCommerce per funzionare."
 msgstr ""
 
-#: isigestsyncapi.php:240
+#: isigestsyncapi.php:286
 msgid "Impostazioni"
+msgstr ""
+
+#: isigestsyncapi.php:386
+msgid "Esp."
+msgstr ""
+
+#: isigestsyncapi.php:418
+msgid "Ordine esportato"
+msgstr ""
+
+#: isigestsyncapi.php:422
+msgid "Ordine non esportato"
 msgstr ""
 
 #. Plugin Name of the plugin/theme
