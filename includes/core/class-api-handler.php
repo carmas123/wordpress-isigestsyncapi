@@ -196,7 +196,7 @@ class ApiHandler {
 	 */
 	public function getOrdersToReceive() {
 		try {
-			return $this->order_service->getOrdersToReceive();
+			return $this->order_service->getToReceive();
 		} catch (\Exception $e) {
 			throw new ISIGestSyncApiException($e->getMessage());
 		}
@@ -231,7 +231,7 @@ class ApiHandler {
 	 */
 	public function getCustomersToReceive() {
 		try {
-			return $this->customer_service->getCustomersToReceive();
+			return $this->customer_service->getToReceive();
 		} catch (\Exception $e) {
 			throw new ISIGestSyncApiException($e->getMessage());
 		}
