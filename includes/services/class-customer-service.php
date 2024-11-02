@@ -84,7 +84,7 @@ class CustomerService extends BaseService {
 		// Inizializzazione della tabella di lookup
 		$customer_lookup_table = $wpdb->prefix . 'wc_customer_lookup';
 
-		return "SELECT DISTINCT cl.customer_id 
+		return "SELECT DISTINCT cl.customer_id AS id
             FROM {$customer_lookup_table} cl
             LEFT JOIN {$wpdb->prefix}isi_api_export_customer e ON cl.customer_id = e.customer_id
             WHERE cl.user_id IS NOT NULL
@@ -106,12 +106,12 @@ class CustomerService extends BaseService {
 		global $wpdb;
 
 		// Query per recuperare i clienti modificati o non ancora esportati usando la tabella di lookup
-		$customers = $wpdb->get_results($this->getToReceiveQuery());
+		$customers = $wpdb->get_results($this->getToReceiveQuery(), ARRAY_A);
 
 		$result = [];
 		foreach ($customers as $customer) {
 			try {
-				$customer_data = $this->get($customer->customer_id);
+				$customer_data = $this->get($customer['id']);
 				if (is_array($customer_data) && !empty($customer_data)) {
 					$result[] = $customer_data;
 				}
@@ -235,7 +235,7 @@ class CustomerService extends BaseService {
 		$cnt = 0;
 
 		// Leggiamo i clienti da esportare
-		$items = $wpdb->get_results($this->getToReceiveQuery());
+		$items = $wpdb->get_results($this->getToReceiveQuery(), ARRAY_A);
 
 		foreach ($items as $item_id) {
 			try {

@@ -257,10 +257,10 @@ jQuery(document).ready(function ($) {
 	// Associazione degli handler ai pulsanti
 	$('#isi_customers_set_all_as_exported_button').on(
 		'click',
-		handleCommandButtonClick('customers_set_all_as_exported')
+		handleCommandButtonClick('customers_setallasexported')
 	);
 	$('#isi_orders_set_all_as_exported_button').on(
 		'click',
-		handleCommandButtonClick('orders_set_all_as_exported')
+		handleCommandButtonClick('orders_setallasexported')
 	);
 });

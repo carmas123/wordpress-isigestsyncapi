@@ -150,7 +150,7 @@ class OrderService extends BaseService {
 	private function getToReceiveQuery(): string {
 		global $wpdb;
 		$orders_table = $wpdb->prefix . 'wc_orders';
-		return " SELECT DISTINCT o.`id` 
+		return " SELECT DISTINCT o.`id` AS id
             FROM {$orders_table} o
             LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON o.`id` = e.`order_id`
             WHERE o.status IN ('wc-processing', 'wc-completed')
@@ -174,12 +174,12 @@ class OrderService extends BaseService {
 		$export_check = (bool) get_option('isigest_export_check', false);
 
 		// Leggiamo gli ordini da esportare
-		$orders = $wpdb->get_results($this->getToReceiveQuery());
+		$orders = $wpdb->get_results($this->getToReceiveQuery(), ARRAY_A);
 
 		$result = [];
 		foreach ($orders as $order) {
 			try {
-				$wc_order = wc_get_order($order->id);
+				$wc_order = wc_get_order($order['id']);
 				if (
 					$wc_order &&
 					$this->shouldExportOrder($wc_order, $export_bankwire, $export_check)
@@ -463,11 +463,11 @@ class OrderService extends BaseService {
 		$cnt = 0;
 
 		// Leggiamo gli ordini da esportare
-		$items = $wpdb->get_results($this->getToReceiveQuery());
+		$items = $wpdb->get_results($this->getToReceiveQuery(), ARRAY_A);
 
-		foreach ($items as $item_id) {
+		foreach ($items as $item) {
 			try {
-				$this->setAsReceived($item_id);
+				$this->setAsReceived($item['id']);
 				$cnt++;
 			} catch (\Exception $e) {
 				Utilities::logError($e->getMessage());

@@ -13,6 +13,8 @@ namespace ISIGestSyncAPI\Admin;
 use ISIGestSyncAPI\Core\ConfigHelper;
 use ISIGestSyncAPI\Core\CustomFunctionsManager;
 use ISIGestSyncAPI\Core\Utilities;
+use ISIGestSyncAPI\Services\CustomerService;
+use ISIGestSyncAPI\Services\OrderService;
 
 /**
  * Classe Settings per la gestione delle impostazioni del plugin.
@@ -653,16 +655,26 @@ class Settings {
 			return;
 		}
 
-		if ($this->clearDebugLog()) {
-			wp_send_json_success([
-				'message' => __('Log azzerato con successo', 'isigestsyncapi'),
-				'content' => __('Il file di log è vuoto', 'isigestsyncapi'),
-			]);
-		} else {
-			wp_send_json_error([
-				'message' => __('Impossibile azzerare il log', 'isigestsyncapi'),
-			]);
+		$command = isset($_POST['command']) ? wp_unslash($_POST['command']) : '';
+
+		switch ($command) {
+			case 'customers_setallasexported':
+				$x = new CustomerService();
+				$x->setAsExportedAll();
+				break;
+			case 'orders_setallasexported':
+				$x = new OrderService();
+				$x->setAsExportedAll();
+				break;
+			default:
+				wp_send_json_error([
+					'message' => __('Comando non valido', 'isigestsyncapi'),
+				]);
+				return;
 		}
+		wp_send_json_success([
+			'message' => __('Comando eseguito con successo', 'isigestsyncapi'),
+		]);
 	}
 
 	/**
