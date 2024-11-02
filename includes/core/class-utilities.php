@@ -359,6 +359,17 @@ class Utilities {
 	}
 
 	/**
+	 * Arrotonda un numero a un numero specifico di decimali.
+	 *
+	 * @param float   $number Il numero da arrotondare.
+	 * @param integer $dp     Il numero di decimali a cui arrotondare. Default è 2.
+	 * @return float          Il numero arrotondato.
+	 */
+	public static function round($number, $dp = 2) {
+		return floatval(wc_format_decimal($number, $dp));
+	}
+
+	/**
 	 * Pulisce la cache di un singolo prodotto WooCommerce
 	 *
 	 * @param int $product_id ID del prodotto
