@@ -59,54 +59,60 @@ class OrderService extends BaseService {
 	 * Recupera i dati di un ordine.
 	 *
 	 * @param integer $order_id ID dell'ordine.
-	 * @return array
+	 * @return array|null
 	 * @throws ISIGestSyncApiNotFoundException Se l'ordine non viene trovato.
 	 */
 	public function get($order_id) {
-		$order = wc_get_order($order_id);
-		if (!$order) {
-			throw new ISIGestSyncApiNotFoundException('Ordine non trovato');
+		try {
+			$order = wc_get_order($order_id);
+			if (!$order) {
+				throw new ISIGestSyncApiNotFoundException('Ordine non trovato');
+			}
+
+			$items = $this->getOrderItems($order);
+			// Verifichiamo che ci sia almeno una riga valida altrimenti non possiamo esportare l'ordine
+			if (empty($items)) {
+				throw new ISIGestSyncApiNotFoundException(
+					'Nessuna riga valida per l\'ordine ' . $order_id,
+				);
+			}
+
+			$data = [
+				'id' => $order->get_id(),
+				'reference' => $order->get_order_number(),
+				'date' => Utilities::dateToISO($order->get_date_created()->date('Y-m-d H:i:s')),
+				'payment' => $this->formatPaymentMethod($order->get_payment_method_title()),
+				'shipping_cost' => (float) $order->get_shipping_total(),
+				'shipping_cost_wt' =>
+					(float) ($order->get_shipping_total() + $order->get_shipping_tax()),
+				'discounts' => (float) $order->get_discount_total(),
+				'discounts_wt' =>
+					(float) ($order->get_discount_total() + $order->get_discount_tax()),
+				'total_paid' => (float) $order->get_total(),
+				'total' => (float) $order->get_total(),
+				'status' => $order->get_status(),
+				'status_name' => \wc_get_order_status_name($order->get_status()),
+				'source' => $this->determineOrderSource($order),
+				'notes' => $order->get_customer_note(),
+				'message' => $this->getOrderMessages($order),
+				'customer' => $this->getCustomerData($order),
+				'address_invoice' => self::billingAddressToData($order),
+				'address_shipping' => self::shippingAddressToData($order),
+				'items' => $this->getOrderItems($order),
+			];
+
+			// Aggiunge ID marketplace se necessario
+			if ($data['source'] === 'amazon') {
+				$data['amazon_id'] = $order->get_meta('_amazon_order_id');
+			} elseif ($data['source'] === 'ebay') {
+				$data['ebay_id'] = $order->get_meta('_ebay_order_id');
+			}
+
+			return $data;
+		} catch (\Exception $e) {
+			self::setAsReceived($order_id, $e);
+			return null;
 		}
-
-		$items = $this->getOrderItems($order);
-		// Verifichiamo che ci sia almeno una riga valida altrimenti non possiamo esportare l'ordine
-		if (empty($items)) {
-			throw new ISIGestSyncApiNotFoundException(
-				'Nessuna riga valida per l\'ordine ' . $order_id,
-			);
-		}
-
-		$data = [
-			'id' => $order->get_id(),
-			'reference' => $order->get_order_number(),
-			'date' => Utilities::dateToISO($order->get_date_created()->date('Y-m-d H:i:s')),
-			'payment' => $this->formatPaymentMethod($order->get_payment_method_title()),
-			'shipping_cost' => (float) $order->get_shipping_total(),
-			'shipping_cost_wt' =>
-				(float) ($order->get_shipping_total() + $order->get_shipping_tax()),
-			'discounts' => (float) $order->get_discount_total(),
-			'discounts_wt' => (float) ($order->get_discount_total() + $order->get_discount_tax()),
-			'total_paid' => (float) $order->get_total(),
-			'total' => (float) $order->get_total(),
-			'status' => $order->get_status(),
-			'status_name' => \wc_get_order_status_name($order->get_status()),
-			'source' => $this->determineOrderSource($order),
-			'notes' => $order->get_customer_note(),
-			'message' => $this->getOrderMessages($order),
-			'customer' => $this->getCustomerData($order),
-			'address_invoice' => self::billingAddressToData($order),
-			'address_shipping' => self::shippingAddressToData($order),
-			'items' => $this->getOrderItems($order),
-		];
-
-		// Aggiunge ID marketplace se necessario
-		if ($data['source'] === 'amazon') {
-			$data['amazon_id'] = $order->get_meta('_amazon_order_id');
-		} elseif ($data['source'] === 'ebay') {
-			$data['ebay_id'] = $order->get_meta('_ebay_order_id');
-		}
-
-		return $data;
 	}
 
 	/**
@@ -457,7 +463,7 @@ class OrderService extends BaseService {
 		return !empty($comments) ? reset($comments)->comment_content : '';
 	}
 
-	public function setAsExportedAll(): int {
+	public function setAsReceivedAll(): int {
 		global $wpdb;
 
 		$cnt = 0;

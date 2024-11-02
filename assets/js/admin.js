@@ -236,11 +236,11 @@ jQuery(document).ready(function ($) {
 				},
 				success: function (response) {
 					if (response.success) {
-						$('#debug_log').val(response.data.content);
+						ISIGestSyncAPI_ShowNotice('success', response.data.message);
 					} else {
 						ISIGestSyncAPI_ShowNotice(
 							'error',
-							response.data.message || "Errore durante l'esecuzione del comando"
+							response.data.message || 'Errore durante il salvataggio'
 						);
 					}
 				},

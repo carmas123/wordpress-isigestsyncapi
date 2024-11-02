@@ -229,7 +229,7 @@ class CustomerService extends BaseService {
 		return $address;
 	}
 
-	public function setAsExportedAll(): int {
+	public function setAsReceivedAll(): int {
 		global $wpdb;
 
 		$cnt = 0;

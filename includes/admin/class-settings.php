@@ -660,11 +660,11 @@ class Settings {
 		switch ($command) {
 			case 'customers_setallasexported':
 				$x = new CustomerService();
-				$x->setAsExportedAll();
+				$x->setAsReceivedAll();
 				break;
 			case 'orders_setallasexported':
 				$x = new OrderService();
-				$x->setAsExportedAll();
+				$x->setAsReceivedAll();
 				break;
 			default:
 				wp_send_json_error([
