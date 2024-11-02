@@ -11,6 +11,7 @@
 namespace ISIGestSyncAPI\Admin;
 
 use ISIGestSyncAPI\Core\ConfigHelper;
+use ISIGestSyncAPI\Core\CustomFunctionsManager;
 
 /**
  * Classe Settings per la gestione delle impostazioni del plugin.
@@ -54,9 +55,33 @@ class Settings {
 		$this->active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'general';
 		$this->debug_log_file = $log_file = ISIGESTSYNCAPI_LOGS_DIR . '/isigestsyncapi.log';
 
+		// Aggiungi gli script di CodeMirror
+		add_action('admin_enqueue_scripts', [$this, 'enqueue_editor_scripts']);
+
 		add_action('wp_ajax_isigestsyncapi_save_settings', [$this, 'ajaxSaveSettings']);
 		add_action('wp_ajax_isigestsyncapi_clear_log', [$this, 'ajaxClearLog']);
 		add_action('wp_ajax_isigestsyncapi_refresh_log', [$this, 'ajaxRefreshLog']);
+		add_action('wp_ajax_isigestsyncapi_save_custom_functions', [
+			$this,
+			'ajaxSaveCustomFunctions',
+		]);
+	}
+
+	/**
+	 * Carica gli script necessari per l'editor
+	 */
+	public function enqueue_editor_scripts($hook) {
+		// Verifica di essere nella pagina corretta
+		if (strpos($hook, 'isigestsyncapi-settings') === false) {
+			return;
+		}
+
+		// Carica le dipendenze di CodeMirror
+		wp_enqueue_code_editor(['type' => 'text/x-php']);
+
+		// CodeMirror core
+		wp_enqueue_script('wp-theme-plugin-editor');
+		wp_enqueue_style('wp-codemirror');
 	}
 
 	/**
@@ -194,6 +219,26 @@ class Settings {
 
 		return $this->buildSelect($key, $label, $tab, $section, $info, $options);
 	}
+
+	/**
+	 * Crea il campo memo per la modifica delle funzioni aggiuntive customizzate
+	 *
+	 * @return array Configurazione campo.
+	 */
+	private function buildCustomFunctionsField() {
+		return [
+			'type' => 'custom_functions',
+			'name' => 'custom_functions',
+			'tab' => 'custom_functions',
+			'section' => 'Definizione Funzioni Personalizzate',
+			'description' => __(
+				'Definisci le funzioni PHP di trasformazione dei dati.',
+				'isigestsyncapi',
+			),
+			'value' => CustomFunctionsManager::getInstance()->getCustomFunctionsContent(),
+		];
+	}
+
 	/**
 	 * Restituisce la struttura completa delle impostazioni del plugin
 	 *
@@ -213,6 +258,7 @@ class Settings {
 					'products_dont_sync' => __('Prodotti (Blocca aggiornamento)', 'isigestsyncapi'),
 					'sizesandcolors' => __('Taglie e Colori', 'isigestsyncapi'),
 					'advanced' => __('Avanzate', 'isigestsyncapi'),
+					'custom_functions' => __('Funzioni', 'isigestsyncapi'),
 				],
 				'input' => [
 					// General Settings
@@ -455,6 +501,9 @@ class Settings {
 							],
 						],
 					],
+
+					// Funzioni customizzate
+					$this->buildCustomFunctionsField(),
 				],
 				'submit' => [
 					'title' => __('Salva', 'isigestsyncapi'),
@@ -618,6 +667,41 @@ class Settings {
 		} else {
 			wp_send_json_error([
 				'message' => __('Nessuna impostazione da salvare', 'isigestsyncapi'),
+			]);
+		}
+	}
+
+	public function ajaxSaveCustomFunctions() {
+		// Verifica il nonce
+		check_ajax_referer('isigestsyncapi-settings', 'nonce');
+
+		// Verifica i permessi
+		if (!current_user_can('manage_options')) {
+			wp_send_json_error([
+				'message' => __('Non autorizzato', 'isigestsyncapi'),
+			]);
+		}
+
+		// Prendi il contenuto del codice PHP inviato
+		$code = isset($_POST['code']) ? wp_unslash($_POST['code']) : '';
+
+		try {
+			// Salva il codice nel file
+			$custom_functions = CustomFunctionsManager::getInstance();
+			$result = $custom_functions->saveCustomFunctionsContent($code);
+
+			if ($result === false) {
+				wp_send_json_error([
+					'message' => __('Errore durante il salvataggio del file', 'isigestsyncapi'),
+				]);
+			}
+
+			wp_send_json_success([
+				'message' => __('Funzioni salvate con successo', 'isigestsyncapi'),
+			]);
+		} catch (\Exception $e) {
+			wp_send_json_error([
+				'message' => $e->getMessage(),
 			]);
 		}
 	}

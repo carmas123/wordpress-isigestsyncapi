@@ -35,6 +35,9 @@ class Router {
 		// Forza l'inizializzazione di WooCommerce
 		$this->initializeWooCommerce();
 
+		// Carichiamo le funzioni personaliizzate
+		CustomFunctionsManager::getInstance()->loadCustomFunctions();
+
 		try {
 			$response = $this->routeRequest($method, $request_path);
 			$this->sendJsonData($response);

@@ -288,6 +288,15 @@ class Plugin {
 			true,
 		);
 
+		// Script personalizzato per inizializzare l'editor
+		wp_enqueue_script(
+			'isigestsyncapi-editor',
+			plugin_dir_url(ISIGESTSYNCAPI_PLUGIN_FILE) . 'assets/js/editor.js',
+			['jquery', 'wp-theme-plugin-editor', 'code-editor'],
+			ISIGESTSYNCAPI_VERSION,
+			true,
+		);
+
 		wp_localize_script('isigestsyncapi-admin', 'isigestsyncapi', [
 			'ajaxurl' => admin_url('admin-ajax.php'),
 			'nonce' => wp_create_nonce('isigestsyncapi-settings'),

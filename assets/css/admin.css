@@ -179,3 +179,14 @@
 	visibility: visible;
 	opacity: 1;
 }
+
+.isi-settings-textarea-container {
+	position: relative;
+}
+.isi-settings-button-container {
+	display: flex;
+	gap: 10px;
+}
+.isi-settings-button-container button {
+	margin: 0;
+}

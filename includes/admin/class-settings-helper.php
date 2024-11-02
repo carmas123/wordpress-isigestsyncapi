@@ -128,6 +128,9 @@ class SettingsHelper {
 			case 'textarea':
 				$this->renderTextareaField($field);
 				break;
+			case 'custom_functions':
+				$this->renderCustomFunctionsFileField($field);
+				break;
 			default:
 				$this->renderDefaultField($field);
 				break;
@@ -209,7 +212,7 @@ class SettingsHelper {
                 ); ?>"><?php echo esc_html($field['label']); ?></label>
             </th>
             <td>
-                <div class="textarea-container">
+                <div class="isi-settings-textarea-container">
                     <textarea
                         name="isigestsyncapi_settings[<?php echo esc_attr($field['name']); ?>]"
                         id="<?php echo esc_attr($field['name']); ?>"
@@ -220,7 +223,7 @@ class SettingsHelper {
                     ><?php echo esc_textarea($field['value']); ?></textarea>
                     
                     <?php if (!empty($field['buttons'])): ?>
-                        <div class="button-container" style="margin-top: 10px;">
+                        <div class="isi-settings-button-container" style="margin-top: 10px;">
                             <?php foreach ($field['buttons'] as $button): ?>
                                 <button type="button" 
                                     class="<?php echo esc_attr($button['class']); ?>"
@@ -246,20 +249,6 @@ class SettingsHelper {
             </td>
         </tr>
 
-        <?php if (!empty($field['buttons'])): ?>
-        <style>
-            .textarea-container {
-                position: relative;
-            }
-            .button-container {
-                display: flex;
-                gap: 10px;
-            }
-            .button-container button {
-                margin: 0;
-            }
-        </style>
-        <?php endif; ?>
         <?php
 	}
 
@@ -291,4 +280,85 @@ class SettingsHelper {
         </tr>
         <?php
 	}
+
+	private function renderCustomFunctionsFileField($field) {
+		?>
+        <tr>
+            <td>
+                <div class="isi-settings-textarea-container">
+                    <textarea
+                        name="isigestsyncapi_settings[<?php echo esc_attr($field['name']); ?>]"
+                        id="isi_custom_functions_editor"
+                        class="large-text code"
+                        rows="20"
+                    ><?php echo esc_textarea($field['value']); ?></textarea>
+                    
+                    <div class="isi-settings-button-container" style="margin-top: 10px;">
+                        <button type="button" class="button" id="isi_custom_functions_save">
+                            <?php _e('Salva funzioni', 'isigestsyncapi'); ?>
+                        </button>
+                    </div>
+    
+                    <?php if (!empty($field['description'])): ?>
+                        <p class="description"><?php echo esc_html($field['description']); ?></p>
+                    <?php endif; ?>
+                </div>
+            </td>
+        </tr>
+    
+        <style>
+            .CodeMirror {
+                height: 500px;
+                border: 1px solid #ddd;
+            }
+        </style>
+        <?php
+	}
 }
+
+/*
+        <tr>
+            <th scope="row">
+                <label for="<?php echo esc_attr(
+                	$field['name'],
+                ); ?>"><?php echo esc_html($field['label']); ?></label>
+            </th>
+            <td>
+                <div class="isi-settings-textarea-container">
+                    <textarea
+                        name="isigestsyncapi_settings[<?php echo esc_attr($field['name']); ?>]"
+                        id="<?php echo esc_attr($field['name']); ?>"
+                        class="large-text code"
+                        rows="10"
+                        <?php echo $field['readonly'] ? 'readonly' : ''; ?>
+                        <?php echo $field['disabled'] ? 'disabled' : ''; ?>
+                    ><?php echo esc_textarea($field['value']); ?></textarea>
+                    
+                    <?php if (!empty($field['buttons'])): ?>
+                        <div class="isi-settings-button-container" style="margin-top: 10px;">
+                            <?php foreach ($field['buttons'] as $button): ?>
+                                <button type="button" 
+                                    class="<?php echo esc_attr($button['class']); ?>"
+                                    <?php if (isset($button['data-action'])): ?>
+                                        data-action="<?php echo esc_attr(
+                                        	$button['data-action'],
+                                        ); ?>"
+                                    <?php endif; ?>
+									<?php if (isset($button['id'])): ?>
+                                        id="<?php echo esc_attr($button['id']); ?>"
+                                    <?php endif; ?>
+                                >
+                                    <?php echo esc_html($button['label']); ?>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($field['description'])): ?>
+                        <p class="description"><?php echo esc_html($field['description']); ?></p>
+                    <?php endif; ?>
+                </div>
+            </td>
+        </tr>
+
+*/
