@@ -426,4 +426,20 @@ class Utilities {
 		// Pulisce la cache delle variazioni
 		\WC_Cache_Helper::invalidate_cache_group('products');
 	}
+
+	/**
+	 * Converte una data in formato ISO 8601.
+	 *
+	 * Questo metodo prende una data in input e la converte nel formato ISO 8601,
+	 * che è uno standard internazionale per la rappresentazione di date e orari.
+	 *
+	 * @param string $date La data da convertire. Può essere in qualsiasi formato riconosciuto da strtotime().
+	 * @return string La data convertita in formato ISO 8601 (es. "2023-04-15T12:30:45+00:00").
+	 */
+	public static function dateToISO($date) {
+		if (!$date) {
+			return '';
+		}
+		return date('c', strtotime($date));
+	}
 }

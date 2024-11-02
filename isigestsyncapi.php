@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ISIGest Sync API
  * Description: Plugin per la sincronizzazione dei prodotti tramite API
- * Version: 1.0.48
+ * Version: 1.0.50
  * Author: ISIGest S.r.l.
  * Author URI: https://www.isigest.net
  *
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Definizioni costanti
-define('ISIGESTSYNCAPI_VERSION', '1.0.48');
+define('ISIGESTSYNCAPI_VERSION', '1.0.50');
 define('ISIGESTSYNCAPI_PLUGIN_FILE', __FILE__);
 define('ISIGESTSYNCAPI_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ISIGESTSYNCAPI_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -93,7 +93,53 @@ class Plugin {
 		if (is_admin()) {
 			add_action('admin_menu', [$this, 'addAdminMenuItems']);
 			add_action('admin_enqueue_scripts', [$this, 'enqueueAdminAssets']);
+			$this->initOrderColumns();
 		}
+	}
+
+	/**
+	 * Inizializza le colonne degli ordini.
+	 *
+	 * @since 1.0.0
+	 * @access private
+	 */
+	public function initOrderColumns() {
+		// Per la visualizzazione classica (post-based)
+		add_filter('manage_edit-shop_order_columns', [$this, 'addOrderExportColumn'], 20);
+		add_action(
+			'manage_shop_order_posts_custom_column',
+			[$this, 'renderOrderExportColumn'],
+			10,
+			2,
+		);
+		add_filter('manage_edit-shop_order_sortable_columns', [
+			$this,
+			'makeOrderExportColumnSortable',
+		]);
+
+		// Per la visualizzazione HPOS (Custom Order Tables)
+		add_filter(
+			'manage_woocommerce_page_wc-orders_columns',
+			[$this, 'addOrderExportColumn'],
+			20,
+		);
+		add_action(
+			'manage_woocommerce_page_wc-orders_custom_column',
+			[$this, 'renderOrderExportColumn'],
+			10,
+			2,
+		);
+		add_filter('manage_woocommerce_page_wc-orders_sortable_columns', [
+			$this,
+			'makeOrderExportColumnSortable',
+		]);
+
+		// Gestione ordinamento
+		add_action('pre_get_posts', [$this, 'handleOrderExportColumnSorting']);
+		add_filter('woocommerce_order_list_table_prepare_items_query_args', [
+			$this,
+			'handleHPOSColumnSorting',
+		]);
 	}
 
 	public function addAdminMenuItems() {
@@ -321,6 +367,112 @@ class Plugin {
 	public function upgradeDb() {
 		$helper = new UpgradeHelper();
 		$helper->performUpgrade();
+	}
+
+	/**
+	 * Aggiunge la colonna di esportazione alla lista ordini.
+	 *
+	 * @param array $columns Colonne esistenti
+	 * @return array Colonne modificate
+	 */
+	public function addOrderExportColumn($columns) {
+		$new_columns = [];
+
+		foreach ($columns as $column_name => $column_info) {
+			$new_columns[$column_name] = $column_info;
+
+			// Aggiungi la colonna dopo lo status
+			if ($column_name === 'order_status') {
+				$new_columns['isigestsyncapi_is_exported'] = __('Esp.', 'isigestsyncapi');
+			}
+		}
+
+		return $new_columns;
+	}
+
+	/**
+	 * Renderizza il contenuto della colonna di esportazione.
+	 *
+	 * @param string $column Nome della colonna
+	 * @param int|\WC_Order $order ID dell'ordine o oggetto ordine
+	 */
+	public function renderOrderExportColumn($column, $order) {
+		if ($column === 'isigestsyncapi_is_exported') {
+			global $wpdb;
+
+			// Ottiene l'ID dell'ordine
+			$order_id = is_object($order) ? $order->get_id() : $order;
+
+			// Verifica se l'ordine è stato esportato
+			$is_exported = (bool) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT is_exported 
+            FROM {$wpdb->prefix}isi_api_export_order 
+            WHERE order_id = %d",
+					$order_id,
+				),
+			);
+
+			if ($is_exported === true) {
+				echo '<span class="dashicons dashicons-yes-alt" style="color: #2ea2cc;" title="' .
+					esc_attr__('Ordine esportato', 'isigestsyncapi') .
+					'"></span>';
+			} else {
+				echo '<span class="dashicons dashicons-no-alt" style="color: #dc3232;" title="' .
+					esc_attr__('Ordine non esportato', 'isigestsyncapi') .
+					'"></span>';
+			}
+		}
+	}
+
+	/**
+	 * Rende la colonna di esportazione ordinabile.
+	 *
+	 * @param array $columns Colonne ordinabili
+	 * @return array Colonne ordinabili modificate
+	 */
+	public function makeOrderExportColumnSortable($columns) {
+		$columns['isigestsyncapi_is_exported'] = 'isigestsyncapi_is_exported';
+		return $columns;
+	}
+
+	/**
+	 * Gestisce l'ordinamento della colonna per HPOS.
+	 *
+	 * @param array $query_args Arguments for the query
+	 * @return array Modified query arguments
+	 */
+	public function handleHPOSColumnSorting($query_args) {
+		if (isset($_GET['orderby']) && $_GET['orderby'] === 'isigestsyncapi_is_exported') {
+			global $wpdb;
+
+			$query_args[
+				'join'
+			] .= " LEFT JOIN {$wpdb->prefix}isi_api_export_order AS isi_export ON isi_export.order_id = orders.id";
+			$query_args['orderby'] = 'isi_export.is_exported';
+			$query_args['order'] =
+				isset($_GET['order']) && strtoupper($_GET['order']) === 'DESC' ? 'DESC' : 'ASC';
+		}
+
+		return $query_args;
+	}
+
+	/**
+	 * Gestisce l'ordinamento della colonna di esportazione.
+	 *
+	 * @param \WP_Query $query Query object
+	 */
+	public function handleOrderExportColumnSorting($query) {
+		if (!is_admin()) {
+			return;
+		}
+
+		$orderby = $query->get('orderby');
+
+		if ($orderby === 'isigestsyncapi_is_exported') {
+			$query->set('meta_key', '_isigestsyncapi_is_exported');
+			$query->set('orderby', 'meta_value');
+		}
 	}
 }
 

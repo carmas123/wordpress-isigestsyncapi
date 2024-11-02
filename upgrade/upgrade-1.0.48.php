@@ -3,7 +3,6 @@
 use ISIGestSyncAPI\Core\DbHelper;
 
 function isigestsyncapi_upgrade_1_0_48(): bool {
-	// Versione Iniziale
 	global $wpdb;
 	$p = $wpdb->prefix . 'isi_api_';
 	$charset_collate = $wpdb->get_charset_collate();

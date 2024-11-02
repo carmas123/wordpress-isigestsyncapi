@@ -430,7 +430,7 @@ class ProductService extends BaseService {
 			$wpdb->prefix . 'isi_api_export_product',
 			[
 				'post_id' => $product_id,
-				'exported' => 1,
+				'is_exported' => 1,
 				'exported_at' => current_time('mysql'),
 			],
 			['%d', '%d', '%s'],
@@ -454,7 +454,7 @@ class ProductService extends BaseService {
                 LEFT JOIN {$wpdb->prefix}isi_api_export_product e ON p.ID = e.post_id
                 WHERE p.post_type = 'product'
                 AND p.post_status = 'publish'
-                AND (e.post_id IS NULL OR e.exported = 0 OR p.post_modified <> e.exported_at)
+                AND (e.post_id IS NULL OR e.is_exported = 0 OR p.post_modified <> e.exported_at)
             ");
 
 		$result = [];

@@ -10,11 +10,7 @@
 
 namespace ISIGestSyncAPI\Services;
 
-use ISIGestSyncAPI\Core\ConfigHelper;
-use ISIGestSyncAPI\Core\DbHelper;
 use ISIGestSyncAPI\Core\Utilities;
-use ISIGestSyncAPI\Core\ISIGestSyncApiException;
-use ISIGestSyncAPI\Core\ISIGestSyncApiBadRequestException;
 use ISIGestSyncAPI\Core\ISIGestSyncApiNotFoundException;
 
 /**
@@ -77,10 +73,18 @@ class OrderService extends BaseService {
 			throw new ISIGestSyncApiNotFoundException('Ordine non trovato');
 		}
 
+		$items = $this->getOrderItems($order);
+		// Verifichiamo che ci sia almeno una riga valida altrimenti non possiamo esportare l'ordine
+		if (empty($items)) {
+			throw new ISIGestSyncApiNotFoundException(
+				'Nessuna riga valida per l\'ordine ' . $order_id,
+			);
+		}
+
 		$data = [
 			'id' => $order->get_id(),
 			'reference' => $order->get_order_number(),
-			'date' => $this->dateToISO($order->get_date_created()->date('Y-m-d H:i:s')),
+			'date' => Utilities::dateToISO($order->get_date_created()->date('Y-m-d H:i:s')),
 			'payment' => $this->formatPaymentMethod($order->get_payment_method_title()),
 			'shipping_cost' => (float) $order->get_shipping_total(),
 			'shipping_cost_wt' =>
@@ -157,16 +161,18 @@ class OrderService extends BaseService {
 
 		// Query modificata per considerare la data di modifica dell'ordine
 		$orders = $wpdb->get_results("
-            SELECT DISTINCT p.`id` 
-            FROM {$this->orders_table} p
-            LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON p.`id` = e.`order_id`
-            WHERE 
-            p.post_status IN ('wc-processing', 'wc-completed')
+            SELECT DISTINCT o.`id` 
+            FROM {$this->orders_table} o
+            LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON o.`id` = e.`order_id`
+            WHERE o.status IN ('wc-processing', 'wc-completed')
+			AND o.type NOT IN ('shop_order_refund')
             AND (
                 e.order_id IS NULL 
-                OR e.exported = 0 
-                OR p.post_modified <> e.exported_at
+                OR e.is_exported = 0 
+                OR o.date_updated_gmt <> e.exported_at
             )
+
+			AND o.id = 20679
         ");
 
 		$result = [];
@@ -177,7 +183,10 @@ class OrderService extends BaseService {
 					$wc_order &&
 					$this->shouldExportOrder($wc_order, $export_bankwire, $export_check)
 				) {
-					$result[] = $this->get($order->ID);
+					$o = $this->get($wc_order->get_id());
+					if (is_array($o) && !empty($o)) {
+						$result[] = $o;
+					}
 				}
 			} catch (\Exception $e) {
 				Utilities::logError($e->getMessage());
@@ -197,19 +206,31 @@ class OrderService extends BaseService {
 		$items = [];
 
 		foreach ($order->get_items() as $item) {
-			$product = $item->get_product();
+			try {
+				$product = $item->get_product();
+			} catch (\Exception $e) {
+				Utilities::logError($e->getMessage());
+				return [];
+			}
+
 			if (!$product) {
 				continue;
 			}
 
+			if ($product->is_type('variant')) {
+				$post_id = $product->get_parent_id();
+				$variant_id = $product->get_id();
+			} else {
+				$post_id = $product->get_id();
+				$variant_id = 0;
+			}
+
 			$items[] = [
-				'product_id' => $product->get_id(),
-				'product_attribute_id' => $product->get_id(),
+				'post_id' => $post_id,
+				'variant_id' => $variant_id,
 				'product_name' => $item->get_name(),
+				'isigest_code' => $product->get_sku(),
 				'product' => [
-					'reference' => $product->get_sku(),
-					'ean' => $product->get_meta('_ean'),
-					'upc' => $product->get_meta('_upc'),
 					'weight' => (float) $product->get_weight(),
 					'name' => $product->get_name(),
 					'description' => $product->get_description(),
@@ -218,7 +239,6 @@ class OrderService extends BaseService {
 					'height' => (float) $product->get_height(),
 					'depth' => (float) $product->get_length(),
 					'tax_rate' => $this->getProductTaxRate($product),
-					// 'brand' => $this->getProductBrand($product),
 				],
 				'quantity' => (float) $item->get_quantity(),
 				'price' => (float) $product->get_regular_price(),
@@ -291,7 +311,7 @@ class OrderService extends BaseService {
 	 * @return array
 	 */
 	private function getBillingAddress($order) {
-		return [
+		$address = [
 			'company' => $order->get_billing_company(),
 			'address1' => $order->get_billing_address_1(),
 			'address2' => $order->get_billing_address_2(),
@@ -299,8 +319,15 @@ class OrderService extends BaseService {
 			'city' => $order->get_billing_city(),
 			'state' => $order->get_billing_state(),
 			'country' => $order->get_billing_country(),
-			'phone' => $order->get_billing_phone(),
 		];
+
+		// Crea un ID numerico
+		$address['id'] = abs(crc32(implode('|', array_filter($address))));
+
+		// Aggiungiamo il Telefono
+		$address['phone'] = $order->get_billing_phone();
+
+		return $address;
 	}
 
 	/**
@@ -310,7 +337,7 @@ class OrderService extends BaseService {
 	 * @return array
 	 */
 	private function getShippingAddress($order) {
-		return [
+		$address = [
 			'company' => $order->get_shipping_company(),
 			'address1' => $order->get_shipping_address_1(),
 			'address2' => $order->get_shipping_address_2(),
@@ -318,8 +345,15 @@ class OrderService extends BaseService {
 			'city' => $order->get_shipping_city(),
 			'state' => $order->get_shipping_state(),
 			'country' => $order->get_shipping_country(),
-			'phone' => $order->get_meta('_shipping_phone'),
 		];
+
+		// Crea un ID numerico
+		$address['id'] = abs(crc32(implode('|', array_filter($address))));
+
+		// Aggiungiamo il Telefono
+		$address['phone'] = $order->get_shipping_phone();
+
+		return $address;
 	}
 
 	/**
@@ -366,15 +400,5 @@ class OrderService extends BaseService {
 	private function getOrderMessages($order) {
 		$comments = $order->get_customer_order_notes();
 		return !empty($comments) ? reset($comments)->comment_content : '';
-	}
-
-	/**
-	 * Converte una data in formato ISO.
-	 *
-	 * @param string $date
-	 * @return string
-	 */
-	private function dateToISO($date) {
-		return date('c', strtotime($date));
 	}
 }
