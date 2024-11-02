@@ -20,11 +20,6 @@ use ISIGestSyncAPI\Core\ISIGestSyncApiNotFoundException;
  */
 class OrderService extends BaseService {
 	/**
-	 * @var string Tabella degli ordini WooCommerce
-	 */
-	private $orders_table;
-
-	/**
 	 * @var string Tabella degli items degli ordini
 	 */
 	private $order_items;
@@ -152,21 +147,11 @@ class OrderService extends BaseService {
 		return $result !== false;
 	}
 
-	/**
-	 * Recupera tutti gli ordini da esportare.
-	 *
-	 * @return array
-	 */
-	public function getOrdersToReceive() {
+	private function getToReceiveQuery(): string {
 		global $wpdb;
-
-		$export_bankwire = (bool) get_option('isigest_export_bankwire', false);
-		$export_check = (bool) get_option('isigest_export_check', false);
-
-		// Query modificata per considerare la data di modifica dell'ordine
-		$orders = $wpdb->get_results("
-            SELECT DISTINCT o.`id` 
-            FROM {$this->orders_table} o
+		$orders_table = $wpdb->prefix . 'wc_orders';
+		return " SELECT DISTINCT o.`id` 
+            FROM {$orders_table} o
             LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON o.`id` = e.`order_id`
             WHERE o.status IN ('wc-processing', 'wc-completed')
 			AND o.type NOT IN ('shop_order_refund')
@@ -174,9 +159,22 @@ class OrderService extends BaseService {
                 e.order_id IS NULL 
                 OR e.is_exported = 0 
             )
+		";
+	}
 
-			AND o.id = 20679
-        ");
+	/**
+	 * Recupera tutti gli ordini da esportare.
+	 *
+	 * @return array
+	 */
+	public function getToReceive() {
+		global $wpdb;
+
+		$export_bankwire = (bool) get_option('isigest_export_bankwire', false);
+		$export_check = (bool) get_option('isigest_export_check', false);
+
+		// Leggiamo gli ordini da esportare
+		$orders = $wpdb->get_results($this->getToReceiveQuery());
 
 		$result = [];
 		foreach ($orders as $order) {
@@ -457,5 +455,25 @@ class OrderService extends BaseService {
 	private function getOrderMessages($order) {
 		$comments = $order->get_customer_order_notes();
 		return !empty($comments) ? reset($comments)->comment_content : '';
+	}
+
+	public function setAsExportedAll(): int {
+		global $wpdb;
+
+		$cnt = 0;
+
+		// Leggiamo gli ordini da esportare
+		$items = $wpdb->get_results($this->getToReceiveQuery());
+
+		foreach ($items as $item_id) {
+			try {
+				$this->setAsReceived($item_id);
+				$cnt++;
+			} catch (\Exception $e) {
+				Utilities::logError($e->getMessage());
+			}
+		}
+
+		return $cnt;
 	}
 }

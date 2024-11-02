@@ -340,6 +340,22 @@ class SettingsHelper {
         <?php
 	}
 
+	public function renderCustomersSetAllAsExported() {
+		?>
+            <button type="button" class="button" id="isi_customers_set_all_as_exported_button">
+                <?php echo esc_html('Imposta tutti i clienti come esportati'); ?>
+            </button>
+        <?php
+	}
+
+	public function renderOrdersSetAllAsExported() {
+		?>
+            <button type="button" class="button" id="isi_orders_set_all_as_exported_button">
+                <?php echo esc_html('Imposta tutti gli ordini come esportati'); ?>
+            </button>
+        <?php
+	}
+
 	// Questo metoto serve a mostrare un avviso quando la tabella degli ordini non è abilitata in WooCommerce
 	public function renderWCCustomOrderTableIsNotEnabled() {
 		?>

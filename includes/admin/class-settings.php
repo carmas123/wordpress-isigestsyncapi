@@ -66,6 +66,7 @@ class Settings {
 			$this,
 			'ajaxSaveCustomFunctions',
 		]);
+		add_action('wp_ajax_isigestsyncapi_commands', [$this, 'ajaxCommands']);
 	}
 
 	/**
@@ -275,6 +276,8 @@ class Settings {
 					'products' => __('Prodotti', 'isigestsyncapi'),
 					'products_dont_sync' => __('Prodotti (Blocca aggiornamento)', 'isigestsyncapi'),
 					'sizesandcolors' => __('Taglie e Colori', 'isigestsyncapi'),
+					'customers' => __('Clienti', 'isigestsyncapi'),
+					'orders' => __('Ordini', 'isigestsyncapi'),
 					'advanced' => __('Avanzate', 'isigestsyncapi'),
 					'custom_functions' => __('Funzioni', 'isigestsyncapi'),
 				],
@@ -505,6 +508,21 @@ class Settings {
 						'Indica il campo slug per i colori (Default: pa_colore)',
 					),
 
+					// Clienti
+					$this->buildHTML(
+						'customers_setallasexported_button',
+						'',
+						'customers',
+						'Strumenti',
+						[$this->helper, 'renderCustomersSetAllAsExported'],
+					),
+
+					// Ordini
+					$this->buildHTML('orders_setallasexported_button', '', 'orders', 'Strumenti', [
+						$this->helper,
+						'renderOrdersSetAllAsExported',
+					]),
+
 					// Advanced Settings
 					$this->buildCheckbox(
 						'enable_debug',
@@ -579,16 +597,26 @@ class Settings {
 		return file_put_contents($this->debug_log_file, '') !== false;
 	}
 
-	/**
-	 * Gestisce la richiesta AJAX per azzerare il log.
-	 */
-	public function ajaxClearLog() {
-		check_ajax_referer('isigestsyncapi-settings', 'nonce');
+	private function checkAjax(): bool {
+		if (check_ajax_referer('isigestsyncapi-settings', 'nonce') === false) {
+			return false;
+		}
 
 		if (!current_user_can('manage_options')) {
 			wp_send_json_error([
 				'message' => __('Non autorizzato', 'isigestsyncapi'),
 			]);
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Gestisce la richiesta AJAX per azzerare il log.
+	 */
+	public function ajaxClearLog() {
+		if (!$this->checkAjax()) {
+			return;
 		}
 
 		if ($this->clearDebugLog()) {
@@ -607,17 +635,34 @@ class Settings {
 	 * Gestisce la richiesta AJAX per aggiornare il contenuto del log.
 	 */
 	public function ajaxRefreshLog() {
-		check_ajax_referer('isigestsyncapi-settings', 'nonce');
-
-		if (!current_user_can('manage_options')) {
-			wp_send_json_error([
-				'message' => __('Non autorizzato', 'isigestsyncapi'),
-			]);
+		if (!$this->checkAjax()) {
+			return;
 		}
 
 		wp_send_json_success([
 			'content' => $this->readDebugLog(),
 		]);
+	}
+
+	/**
+	 * Gestisce la richiesta AJAX per i comandi.
+	 * Ad esempio: Imposta tutti i clienti o ordini come esportati
+	 */
+	public function ajaxCommands() {
+		if (!$this->checkAjax()) {
+			return;
+		}
+
+		if ($this->clearDebugLog()) {
+			wp_send_json_success([
+				'message' => __('Log azzerato con successo', 'isigestsyncapi'),
+				'content' => __('Il file di log è vuoto', 'isigestsyncapi'),
+			]);
+		} else {
+			wp_send_json_error([
+				'message' => __('Impossibile azzerare il log', 'isigestsyncapi'),
+			]);
+		}
 	}
 
 	/**

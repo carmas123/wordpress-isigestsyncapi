@@ -24,20 +24,10 @@ use ISIGestSyncAPI\Core\ISIGestSyncApiNotFoundException;
  */
 class CustomerService extends BaseService {
 	/**
-	 * @var string Tabella di lookup dei clienti WooCommerce
-	 */
-	private $customer_lookup_table;
-
-	/**
 	 * Costruttore.
 	 */
 	public function __construct() {
 		parent::__construct();
-
-		global $wpdb;
-
-		// Inizializzazione della tabella di lookup
-		$this->customer_lookup_table = $wpdb->prefix . 'wc_customer_lookup';
 	}
 
 	/**
@@ -88,18 +78,14 @@ class CustomerService extends BaseService {
 		}
 	}
 
-	/**
-	 * Recupera tutti i clienti da esportare.
-	 *
-	 * @return array
-	 */
-	public function getCustomersToReceive() {
+	private function getToReceiveQuery(): string {
 		global $wpdb;
 
-		// Query per recuperare i clienti modificati o non ancora esportati usando la tabella di lookup
-		$customers = $wpdb->get_results("
-            SELECT DISTINCT cl.customer_id 
-            FROM {$this->customer_lookup_table} cl
+		// Inizializzazione della tabella di lookup
+		$customer_lookup_table = $wpdb->prefix . 'wc_customer_lookup';
+
+		return "SELECT DISTINCT cl.customer_id 
+            FROM {$customer_lookup_table} cl
             LEFT JOIN {$wpdb->prefix}isi_api_export_customer e ON cl.customer_id = e.customer_id
             WHERE cl.user_id IS NOT NULL
 				AND cl.user_id > 0
@@ -108,7 +94,19 @@ class CustomerService extends BaseService {
                 e.customer_id IS NULL 
                 OR e.is_exported = 0 
             	)
-        ");
+        ";
+	}
+
+	/**
+	 * Recupera tutti i clienti da esportare.
+	 *
+	 * @return array
+	 */
+	public function getToReceive() {
+		global $wpdb;
+
+		// Query per recuperare i clienti modificati o non ancora esportati usando la tabella di lookup
+		$customers = $wpdb->get_results($this->getToReceiveQuery());
 
 		$result = [];
 		foreach ($customers as $customer) {
@@ -229,5 +227,25 @@ class CustomerService extends BaseService {
 		$address['phone'] = $customer->get_shipping_phone();
 
 		return $address;
+	}
+
+	public function setAsExportedAll(): int {
+		global $wpdb;
+
+		$cnt = 0;
+
+		// Leggiamo i clienti da esportare
+		$items = $wpdb->get_results($this->getToReceiveQuery());
+
+		foreach ($items as $item_id) {
+			try {
+				$this->setAsReceived($item_id);
+				$cnt++;
+			} catch (\Exception $e) {
+				Utilities::logError($e->getMessage());
+			}
+		}
+
+		return $cnt;
 	}
 }

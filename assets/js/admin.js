@@ -176,7 +176,7 @@ jQuery(document).ready(function ($) {
 		});
 	});
 
-	// Handler per il pulsante "Aggiorna"
+	// Handler per il pulsante "Aggiorna Log"
 	$('#isi_debug_log_refresh').on('click', function (e) {
 		e.preventDefault();
 
@@ -211,4 +211,56 @@ jQuery(document).ready(function ($) {
 			}
 		});
 	});
+
+	// Handler per il pulsante "Imposta tutti i clienti come esportati"
+	// Funzione generica per gestire i click sui pulsanti per i comandi
+	function handleCommandButtonClick(command) {
+		return function (e) {
+			e.preventDefault();
+			if (!confirm("Confermi l'esecuzione del comando?")) {
+				return;
+			}
+
+			const $button = $(this);
+			const originalButtonText = $button.text();
+
+			$button.text('Attendere...').prop('disabled', true);
+
+			$.ajax({
+				url: ajaxurl,
+				type: 'POST',
+				data: {
+					action: 'isigestsyncapi_commands',
+					nonce: isigestsyncapi.nonce,
+					command: command
+				},
+				success: function (response) {
+					if (response.success) {
+						$('#debug_log').val(response.data.content);
+					} else {
+						ISIGestSyncAPI_ShowNotice(
+							'error',
+							response.data.message || "Errore durante l'esecuzione del comando"
+						);
+					}
+				},
+				error: function () {
+					ISIGestSyncAPI_ShowNotice('error', 'Si è verificato un problema');
+				},
+				complete: function () {
+					$button.text(originalButtonText).prop('disabled', false);
+				}
+			});
+		};
+	}
+
+	// Associazione degli handler ai pulsanti
+	$('#isi_customers_set_all_as_exported_button').on(
+		'click',
+		handleCommandButtonClick('customers_set_all_as_exported')
+	);
+	$('#isi_orders_set_all_as_exported_button').on(
+		'click',
+		handleCommandButtonClick('orders_set_all_as_exported')
+	);
 });
