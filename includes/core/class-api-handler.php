@@ -13,6 +13,7 @@ namespace ISIGestSyncAPI\Core;
 use ISIGestSyncAPI\Services\ProductService;
 use ISIGestSyncAPI\Services\StockService;
 use ISIGestSyncAPI\Services\ImageService;
+use ISIGestSyncAPI\Services\OrderService;
 
 /**
  * Classe ApiHandler per la gestione delle operazioni API.
@@ -40,6 +41,13 @@ class ApiHandler {
 	 * @var ImageService
 	 */
 	private $image_service;
+
+	/**
+	 * Service per la gestione degli prodotti.
+	 *
+	 * @var OrderService
+	 */
+	private $order_service;
 
 	/**
 	 * Modalità di riferimento per la sincronizzazione.
@@ -163,6 +171,47 @@ class ApiHandler {
 			}
 
 			return $this->product_service->setProductAsReceived($body);
+		} catch (ISIGestSyncApiException $e) {
+			throw $e;
+		} catch (\Exception $e) {
+			throw new ISIGestSyncApiException($e->getMessage());
+		}
+	}
+
+	/**
+	 * Recupera gli ordini da ricevere.
+	 *
+	 * @return array
+	 * @throws ISIGestSyncApiException Se si verifica un errore durante il recupero.
+	 */
+	public function getOrdersToReceive() {
+		try {
+			return $this->order_service->getOrdersToReceive();
+		} catch (\Exception $e) {
+			throw new ISIGestSyncApiException($e->getMessage());
+		}
+	}
+
+	/**
+	 * Conferma la ricezione di un ordine.
+	 *
+	 * @param array $request I dati della richiesta.
+	 * @return bool
+	 * @throws ISIGestSyncApiException Se la richiesta non è valida.
+	 */
+	public function postOrderReceived($request) {
+		try {
+			if (!isset($request['body'])) {
+				throw new ISIGestSyncApiBadRequestException('Body non valido');
+			}
+
+			$body = $request['body'];
+
+			if (!isset($body['id']) || empty($body['id'])) {
+				throw new ISIGestSyncApiBadRequestException('ID ordine non specificato');
+			}
+
+			return $this->order_service->setAsReceived($body);
 		} catch (ISIGestSyncApiException $e) {
 			throw $e;
 		} catch (\Exception $e) {

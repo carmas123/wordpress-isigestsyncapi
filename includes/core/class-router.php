@@ -83,6 +83,12 @@ class Router {
 			case 'POST product/received':
 				return $this->api_handler->postProductReceived($body);
 
+			case 'GET order/receive':
+				return $this->api_handler->getOrdersToReceive();
+
+			case 'POST order/received':
+				return $this->api_handler->postOrderReceived($body);
+
 			case 'GET product-image':
 				$post_id = isset($_GET['post_id']) ? (int) $_GET['post_id'] : null;
 				$variation_id = isset($_GET['variant_id']) ? $_GET['variant_id'] : null;

@@ -41,13 +41,6 @@ class ProductService extends BaseService {
 	private $prices_with_tax = true;
 
 	/**
-	 * Prefisso per i campi avanzati
-	 *
-	 * @var string
-	 */
-	private const ADVANCED_FIELD_PREFIX = 'af_';
-
-	/**
 	 * Costruttore.
 	 */
 	public function __construct() {
