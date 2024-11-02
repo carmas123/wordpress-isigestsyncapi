@@ -99,8 +99,8 @@ class OrderService extends BaseService {
 			'notes' => $order->get_customer_note(),
 			'message' => $this->getOrderMessages($order),
 			'customer' => $this->getCustomerData($order),
-			'address_invoice' => $this->getBillingAddress($order),
-			'address_delivery' => $this->getShippingAddress($order),
+			'address_invoice' => self::billingAddressToData($order),
+			'address_shipping' => self::shippingAddressToData($order),
 			'items' => $this->getOrderItems($order),
 		];
 
@@ -118,30 +118,34 @@ class OrderService extends BaseService {
 	 * Imposta un ordine come esportato.
 	 *
 	 * @param integer $order_id ID dell'ordine.
+	 * @param string|\Exception|null $error
 	 * @return boolean
 	 */
-	public function setAsReceived($order_id) {
+	public function setAsReceived($order_id, $error = null) {
 		global $wpdb;
 
-		// Recupera l'ordine per ottenere la data di modifica
-		$order = wc_get_order($order_id);
-		if (!$order) {
-			throw new ISIGestSyncApiNotFoundException('Ordine non trovato');
+		$error_message = null;
+		if ($error instanceof \Exception) {
+			$error_message = $error->getMessage();
+		} elseif (is_string($error)) {
+			$error_message = $error;
 		}
 
+		Utilities::logDebug("Impostazione ordine come esportato: {$order_id}");
+
 		// Usa la data di modifica dell'ordine
-		$modified_date = $order->get_date_modified()
-			? $order->get_date_modified()->date('Y-m-d H:i:s')
-			: current_time('mysql');
+		$modified_date = current_time('mysql');
 
 		$result = $wpdb->replace(
 			$wpdb->prefix . 'isi_api_export_order',
 			[
 				'order_id' => (int) $order_id,
-				'exported' => 1,
+				'is_exported' => 1,
 				'exported_at' => $modified_date,
+				'has_error' => $error_message ? 1 : 0,
+				'message' => $error_message,
 			],
-			['%d', '%d', '%s'],
+			['%d', '%d', '%s', '%d', '%s'],
 		);
 		Utilities::logDbResult($result);
 
@@ -169,7 +173,6 @@ class OrderService extends BaseService {
             AND (
                 e.order_id IS NULL 
                 OR e.is_exported = 0 
-                OR o.date_updated_gmt <> e.exported_at
             )
 
 			AND o.id = 20679
@@ -289,6 +292,63 @@ class OrderService extends BaseService {
 	}
 
 	/**
+	 * Recupera l'indirizzo di fatturazione.
+	 *
+	 * @param \WC_Order $order
+	 * @return array
+	 */
+	public static function billingAddressToData($order) {
+		// Recuperiamo i dati dell'indirizzo di fatturazione
+		$address = [
+			'firstname' => $order->get_billing_first_name(),
+			'lastname' => $order->get_billing_last_name(),
+			'company' => $order->get_billing_company(),
+			'address1' => $order->get_billing_address_1(),
+			'address2' => $order->get_billing_address_2(),
+			'postcode' => $order->get_billing_postcode(),
+			'city' => $order->get_billing_city(),
+			'state' => $order->get_billing_state(),
+			'country' => $order->get_billing_country(),
+		];
+
+		// Crea un ID numerico
+		$address['id'] = abs(crc32(implode('|', array_filter($address))));
+
+		// Aggiungiamo il Telefono
+		$address['phone'] = $order->get_billing_phone();
+
+		return $address;
+	}
+
+	/**
+	 * Recupera l'indirizzo di spedizione.
+	 *
+	 * @param \WC_Order $order
+	 * @return array
+	 */
+	public static function shippingAddressToData($order) {
+		$address = [
+			'firstname' => $order->get_shipping_first_name(),
+			'lastname' => $order->get_shipping_last_name(),
+			'company' => $order->get_shipping_company(),
+			'address1' => $order->get_shipping_address_1(),
+			'address2' => $order->get_shipping_address_2(),
+			'postcode' => $order->get_shipping_postcode(),
+			'city' => $order->get_shipping_city(),
+			'state' => $order->get_shipping_state(),
+			'country' => $order->get_shipping_country(),
+		];
+
+		// Crea un ID numerico
+		$address['id'] = abs(crc32(implode('|', array_filter($address))));
+
+		// Aggiungiamo il Telefono
+		$address['phone'] = $order->get_shipping_phone();
+
+		return $address;
+	}
+
+	/**
 	 * Recupera i dati del cliente.
 	 *
 	 * @param \WC_Order $order
@@ -298,9 +358,6 @@ class OrderService extends BaseService {
 		return [
 			'id' => $order->get_customer_id(),
 			'email' => $order->get_billing_email(),
-			'firstname' => $order->get_billing_first_name(),
-			'lastname' => $order->get_billing_last_name(),
-			'company' => $order->get_billing_company(),
 		];
 	}
 

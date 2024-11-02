@@ -44,28 +44,48 @@ class CustomerService extends BaseService {
 	 * Recupera i dati di un cliente.
 	 *
 	 * @param integer $customer_id ID del cliente.
-	 * @return array
+	 * @return array|null
 	 * @throws ISIGestSyncApiNotFoundException Se il cliente non viene trovato.
 	 */
-	public function get($customer_id) {
-		$customer = new \WC_Customer($customer_id);
-		if (!$customer->get_id()) {
-			throw new ISIGestSyncApiNotFoundException('Cliente non trovato');
-		}
+	public static function get($customer_id) {
+		global $wpdb;
+		try {
+			$customer = new \WC_Customer($customer_id);
+			if (!$customer->get_id()) {
+				throw new ISIGestSyncApiNotFoundException('Cliente non trovato');
+			}
 
-		return [
-			'id' => $customer->get_id(),
-			'email' => $customer->get_email(),
-			'firstname' => $customer->get_first_name(),
-			'lastname' => $customer->get_last_name(),
-			'company' => $customer->get_billing_company(),
-			'date_created' => Utilities::dateToISO(
-				$customer->get_date_created()->date('Y-m-d H:i:s'),
-			),
-			'date_last_order' => $this->getLastOrderDate($customer_id),
-			'billing_address' => $this->getBillingAddress($customer),
-			'shipping_address' => $this->getShippingAddress($customer),
-		];
+			if (!is_email($customer->get_email())) {
+				throw new ISIGestSyncApiNotFoundException('E-Mail non valida');
+			}
+
+			$addresses = [
+				self::billingAddressToData($customer),
+				self::shippingAddressToData($customer),
+			];
+
+			// Puliamo l'array degli indirizzi
+			$addresses = array_filter(
+				[self::billingAddressToData($customer), self::shippingAddressToData($customer)],
+				function ($value) {
+					return $value !== null && (!is_array($value) || !empty($value));
+				},
+			);
+
+			// Verifichiamo che ci sia almeno un indirizzo
+			if (empty($addresses)) {
+				throw new ISIGestSyncApiBadRequestException('Nessun indirizzo valido disponibile');
+			}
+
+			return [
+				'id' => $customer->get_id(),
+				'email' => $customer->get_email(),
+				'addresses' => $addresses,
+			];
+		} catch (\Exception $e) {
+			self::setAsReceived($customer_id, $e);
+			return null;
+		}
 	}
 
 	/**
@@ -81,11 +101,13 @@ class CustomerService extends BaseService {
             SELECT DISTINCT cl.customer_id 
             FROM {$this->customer_lookup_table} cl
             LEFT JOIN {$wpdb->prefix}isi_api_export_customer e ON cl.customer_id = e.customer_id
-            WHERE (
+            WHERE cl.user_id IS NOT NULL
+				AND cl.user_id > 0
+				AND
+				(
                 e.customer_id IS NULL 
                 OR e.is_exported = 0 
-                OR cl.date_last_active <> e.exported_at
-            )
+            	)
         ");
 
 		$result = [];
@@ -107,62 +129,38 @@ class CustomerService extends BaseService {
 	 * Imposta un cliente come esportato.
 	 *
 	 * @param integer $customer_id ID del cliente.
+	 * @param string|\Exception|null $error
 	 * @return boolean
 	 */
-	public function setAsReceived($customer_id) {
+	public static function setAsReceived($customer_id, $error = null) {
 		global $wpdb;
 
-		// Recupera la data dell'ultimo ordine dalla tabella di lookup
-		$last_active = $wpdb->get_var(
-			$wpdb->prepare(
-				"
-            SELECT date_last_active 
-            FROM {$this->customer_lookup_table} 
-            WHERE customer_id = %d
-        ",
-				$customer_id,
-			),
-		);
-
-		if (!$last_active) {
-			throw new ISIGestSyncApiNotFoundException('Cliente non trovato');
+		$error_message = null;
+		if ($error instanceof \Exception) {
+			$error_message = $error->getMessage();
+		} elseif (is_string($error)) {
+			$error_message = $error;
 		}
+
+		Utilities::logDebug("Impostazione cliente come esportato: {$customer_id}");
+
+		// Usa la data di modifica dell'ordine
+		$modified_date = current_time('mysql');
 
 		$result = $wpdb->replace(
 			$wpdb->prefix . 'isi_api_export_customer',
 			[
 				'customer_id' => (int) $customer_id,
-				'exported' => 1,
-				'exported_at' => $last_active,
+				'is_exported' => 1,
+				'exported_at' => $modified_date,
+				'has_error' => $error_message ? 1 : 0,
+				'message' => $error_message,
 			],
-			['%d', '%d', '%s'],
+			['%d', '%d', '%s', '%d', '%s'],
 		);
 		Utilities::logDbResult($result);
 
 		return $result !== false;
-	}
-
-	/**
-	 * Recupera la data dell'ultimo ordine del cliente.
-	 *
-	 * @param integer $customer_id
-	 * @return string|null
-	 */
-	private function getLastOrderDate($customer_id) {
-		global $wpdb;
-
-		$last_order_date = $wpdb->get_var(
-			$wpdb->prepare(
-				"
-            SELECT date_last_active 
-            FROM {$this->customer_lookup_table} 
-            WHERE customer_id = %d
-        ",
-				$customer_id,
-			),
-		);
-
-		return $last_order_date ? Utilities::dateToISO($last_order_date) : null;
 	}
 
 	/**
@@ -171,8 +169,16 @@ class CustomerService extends BaseService {
 	 * @param \WC_Customer $customer
 	 * @return array
 	 */
-	private function getBillingAddress($customer) {
+	public static function billingAddressToData($customer) {
 		$address = [
+			'firstname' => Utilities::ifBlank(
+				$customer->get_billing_first_name(),
+				$customer->get_first_name(),
+			),
+			'lastname' => Utilities::ifBlank(
+				$customer->get_billing_last_name(),
+				$customer->get_last_name(),
+			),
 			'company' => $customer->get_billing_company(),
 			'address1' => $customer->get_billing_address_1(),
 			'address2' => $customer->get_billing_address_2(),
@@ -197,8 +203,16 @@ class CustomerService extends BaseService {
 	 * @param \WC_Customer $customer
 	 * @return array
 	 */
-	private function getShippingAddress($customer) {
+	public static function shippingAddressToData($customer) {
 		$address = [
+			'firstname' => Utilities::ifBlank(
+				$customer->get_shipping_first_name(),
+				$customer->get_first_name(),
+			),
+			'lastname' => Utilities::ifBlank(
+				$customer->get_shipping_last_name(),
+				$customer->get_last_name(),
+			),
 			'company' => $customer->get_shipping_company(),
 			'address1' => $customer->get_shipping_address_1(),
 			'address2' => $customer->get_shipping_address_2(),

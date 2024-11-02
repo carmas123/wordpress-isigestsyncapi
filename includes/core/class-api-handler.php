@@ -72,6 +72,7 @@ class ApiHandler {
 		$this->stock_service = new StockService();
 		$this->image_service = new ImageService();
 		$this->order_service = new OrderService();
+		$this->customer_service = new CustomerService();
 		$this->reference_mode = ConfigHelper::getInstance()->get('products_reference_mode', false);
 	}
 
@@ -208,14 +209,8 @@ class ApiHandler {
 	 * @return bool
 	 * @throws ISIGestSyncApiException Se la richiesta non è valida.
 	 */
-	public function postOrderReceived($request) {
+	public function postOrderReceived($body) {
 		try {
-			if (!isset($request['body'])) {
-				throw new ISIGestSyncApiBadRequestException('Body non valido');
-			}
-
-			$body = $request['body'];
-
 			if (!isset($body['id']) || empty($body['id'])) {
 				throw new ISIGestSyncApiBadRequestException('ID ordine non specificato');
 			}
@@ -245,23 +240,17 @@ class ApiHandler {
 	/**
 	 * Conferma la ricezione di un cliente.
 	 *
-	 * @param array $request I dati della richiesta.
+	 * @param array $body I dati della richiesta.
 	 * @return bool
 	 * @throws ISIGestSyncApiException Se la richiesta non è valida.
 	 */
-	public function postCustomerReceived($request) {
+	public function postCustomerReceived($body) {
 		try {
-			if (!isset($request['body'])) {
-				throw new ISIGestSyncApiBadRequestException('Body non valido');
-			}
-
-			$body = $request['body'];
-
 			if (!isset($body['id']) || empty($body['id'])) {
 				throw new ISIGestSyncApiBadRequestException('ID cliente non specificato');
 			}
 
-			return $this->customer_service->setAsReceived($body);
+			return $this->customer_service->setAsReceived($body['id']);
 		} catch (ISIGestSyncApiException $e) {
 			throw $e;
 		} catch (\Exception $e) {
