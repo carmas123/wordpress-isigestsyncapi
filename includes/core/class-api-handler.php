@@ -63,6 +63,7 @@ class ApiHandler {
 		$this->product_service = new ProductService();
 		$this->stock_service = new StockService();
 		$this->image_service = new ImageService();
+		$this->order_service = new OrderService();
 		$this->reference_mode = ConfigHelper::getInstance()->get('products_reference_mode', false);
 	}
 

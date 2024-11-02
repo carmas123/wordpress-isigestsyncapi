@@ -72,7 +72,7 @@ class OrderService extends BaseService {
 	 * @throws ISIGestSyncApiNotFoundException Se l'ordine non viene trovato.
 	 */
 	public function get($order_id) {
-		$order = \wc_get_order($order_id);
+		$order = wc_get_order($order_id);
 		if (!$order) {
 			throw new ISIGestSyncApiNotFoundException('Ordine non trovato');
 		}
@@ -161,11 +161,11 @@ class OrderService extends BaseService {
             FROM {$this->orders_table} p
             LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON p.`id` = e.`order_id`
             WHERE 
-            AND p.post_status IN ('wc-processing', 'wc-completed')
+            p.post_status IN ('wc-processing', 'wc-completed')
             AND (
                 e.order_id IS NULL 
                 OR e.exported = 0 
-                OR p.post_modified > e.exported_at
+                OR p.post_modified <> e.exported_at
             )
         ");
 

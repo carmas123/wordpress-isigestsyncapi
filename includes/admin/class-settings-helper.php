@@ -112,13 +112,16 @@ class SettingsHelper {
 			'label' => '',
 			'description' => '',
 			'class' => '',
-			'value' => $this->config->get($field['name'], ''),
+			'value' => isset($field['name']) ? $this->config->get($field['name'], '') : '',
 			'options' => [],
 			'readonly' => false,
 			'disabled' => false,
 		]);
 
 		switch ($field['type']) {
+			case 'html':
+				$this->renderHtml($field);
+				break;
 			case 'checkbox':
 				$this->renderCheckboxField($field);
 				break;
@@ -281,6 +284,15 @@ class SettingsHelper {
         <?php
 	}
 
+	/**
+	 * Renderizza un campo personalizzato HTML
+	 */
+	private function renderHtml($field) {
+		if (isset($field['callback']) && is_callable($field['callback'])) {
+			call_user_func($field['callback'], $field);
+		}
+	}
+
 	private function renderCustomFunctionsFileField($field) {
 		?>
         <tr>
@@ -312,6 +324,48 @@ class SettingsHelper {
                 border: 1px solid #ddd;
             }
         </style>
+        <?php
+	}
+
+	public function renderPluginVersion() {
+		?>
+        <tr>
+            <th scope="row">
+                <label><?php echo esc_html('Versione Plugin'); ?></label>
+            </th>
+            <td>
+                <span id="isi_plugin_version"><?php echo esc_html(ISIGESTSYNCAPI_VERSION); ?></span>
+            </td>
+        </tr>
+        <?php
+	}
+
+	// Questo metoto serve a mostrare un avviso quando la tabella degli ordini non è abilitata in WooCommerce
+	public function renderWCCustomOrderTableIsNotEnabled() {
+		?>
+        <tr>
+            <td>
+                <div class="notice notice-error inline" style="margin: 0; padding: 8px 12px;">
+                    <p>
+                        <strong><?php echo esc_html('Attenzione:'); ?></strong>
+                        <?php echo sprintf(
+                        	/* translators: %s: link alle impostazioni */
+                        	esc_html__(
+                        		'È necessario abilitare le Custom Order Tables di WooCommerce nelle %sImpostazioni Avanzate%s per utilizzare correttamente questo plugin, altrimenti la ricezione degli ordini non funzionerà.',
+                        	),
+                        	'<a href="' .
+                        		esc_url(
+                        			admin_url(
+                        				'admin.php?page=wc-settings&tab=advanced&section=features',
+                        			),
+                        		) .
+                        		'">',
+                        	'</a>',
+                        ); ?>
+                    </p>
+                </div>
+            </td>
+        </tr>
         <?php
 	}
 }

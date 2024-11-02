@@ -359,6 +359,18 @@ class Utilities {
 	}
 
 	/**
+	 * Verifica se la tabella personalizzata degli ordini di WooCommerce è abilitata.
+	 *
+	 * Questo metodo controlla se l'opzione 'woocommerce_custom_orders_table_enabled'
+	 * è impostata su 'yes' nelle impostazioni di WordPress.
+	 *
+	 * @return bool Restituisce true se la tabella personalizzata degli ordini è abilitata, false altrimenti.
+	 */
+	public static function wcCustomOrderTableIsEnabled(): bool {
+		return get_option('woocommerce_custom_orders_table_enabled') === 'yes';
+	}
+
+	/**
 	 * Arrotonda un numero a un numero specifico di decimali.
 	 *
 	 * @param float   $number Il numero da arrotondare.

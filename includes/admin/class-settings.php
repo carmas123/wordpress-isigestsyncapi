@@ -12,6 +12,7 @@ namespace ISIGestSyncAPI\Admin;
 
 use ISIGestSyncAPI\Core\ConfigHelper;
 use ISIGestSyncAPI\Core\CustomFunctionsManager;
+use ISIGestSyncAPI\Core\Utilities;
 
 /**
  * Classe Settings per la gestione delle impostazioni del plugin.
@@ -198,6 +199,23 @@ class Settings {
 		return $this->buildSelect($key, $label, $tab, $section, $info, $options);
 	}
 
+	protected function buildHTML(
+		string $key,
+		string $label,
+		string $tab,
+		string $section,
+		callable $callback
+	): array {
+		return [
+			'type' => 'html',
+			'key' => $key,
+			'label' => $label,
+			'tab' => $tab,
+			'section' => $section,
+			'callback' => $callback,
+		];
+	}
+
 	/**
 	 * Builds a select input field for product name configuration.
 	 *
@@ -270,6 +288,24 @@ class Settings {
 						'Chiave di autenticazione da utilizzare in ISIGest per consentile la sincronizzazione dei dati',
 						true,
 					),
+					$this->buildHTML(
+						'plugin_version',
+						'Versione Plugin',
+						'general',
+						'Informazioni',
+						[$this->helper, 'renderPluginVersion'],
+					),
+					...!Utilities::wcCustomOrderTableIsEnabled()
+						? [
+							$this->buildHTML(
+								'plugin_version',
+								'Compatibilità',
+								'general',
+								'Problemi',
+								[$this->helper, 'renderWCCustomOrderTableIsNotEnabled'],
+							),
+						]
+						: [],
 
 					// Categorie
 					$this->buildCheckbox(
