@@ -148,6 +148,23 @@ class ConfigHelper extends ConfigBaseHelper {
 	}
 
 	/**
+	 * Ritorna le funzioni personalizzate
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	public static function getCustomFunctions(): string {
+		$value = ConfigHelper::getInstance()->get('custom_functions', '');
+		// Verifichiamo se il valore è corretto
+		if (trim($value) == '<?php') {
+			return '';
+		} else {
+			return $value;
+		}
+	}
+
+	/**
 	 * Ritorna la versione del database del plugin
 	 *
 	 * @since 1.0.0
@@ -159,7 +176,7 @@ class ConfigHelper extends ConfigBaseHelper {
 	}
 
 	/**
-	 * Ritorna la versione del database del plugin
+	 * Aggiorna la versione del database del plugin
 	 *
 	 * @since 1.0.0
 	 *

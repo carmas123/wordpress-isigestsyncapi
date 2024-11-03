@@ -71,7 +71,12 @@ abstract class ConfigBaseHelper {
 	 *
 	 * @var array
 	 */
-	private $int_fields = ['products_name', 'products_description', 'products_short_description'];
+	private $int_fields = [
+		'products_name',
+		'products_description',
+		'products_short_description',
+		'products_stock_qty',
+	];
 
 	/**
 	 * Costruttore privato (pattern Singleton).

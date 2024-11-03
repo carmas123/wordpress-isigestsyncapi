@@ -64,10 +64,6 @@ class Settings {
 		add_action('wp_ajax_isigestsyncapi_save_settings', [$this, 'ajaxSaveSettings']);
 		add_action('wp_ajax_isigestsyncapi_clear_log', [$this, 'ajaxClearLog']);
 		add_action('wp_ajax_isigestsyncapi_refresh_log', [$this, 'ajaxRefreshLog']);
-		add_action('wp_ajax_isigestsyncapi_save_custom_functions', [
-			$this,
-			'ajaxSaveCustomFunctions',
-		]);
 		add_action('wp_ajax_isigestsyncapi_commands', [$this, 'ajaxCommands']);
 	}
 
@@ -266,7 +262,6 @@ class Settings {
 				'Definisci le funzioni PHP di trasformazione dei dati.',
 				'isigestsyncapi',
 			),
-			'value' => CustomFunctionsManager::getInstance()->getCustomFunctionsContent(),
 		];
 	}
 
@@ -745,6 +740,9 @@ class Settings {
 
 				if (is_bool($value) || $value === '1' || $value === '0') {
 					$settings[$key] = (bool) $value;
+				} elseif ($key === 'custom_functions') {
+					// Custom Functions non lo sanifichiamo
+					$settings[$key] = $value;
 				} else {
 					$settings[$key] = sanitize_text_field($value);
 				}
@@ -797,41 +795,6 @@ class Settings {
 		} else {
 			wp_send_json_error([
 				'message' => __('Nessuna impostazione da salvare', 'isigestsyncapi'),
-			]);
-		}
-	}
-
-	public function ajaxSaveCustomFunctions() {
-		// Verifica il nonce
-		check_ajax_referer('isigestsyncapi-settings', 'nonce');
-
-		// Verifica i permessi
-		if (!current_user_can('manage_options')) {
-			wp_send_json_error([
-				'message' => __('Non autorizzato', 'isigestsyncapi'),
-			]);
-		}
-
-		// Prendi il contenuto del codice PHP inviato
-		$code = isset($_POST['code']) ? wp_unslash($_POST['code']) : '';
-
-		try {
-			// Salva il codice nel file
-			$custom_functions = CustomFunctionsManager::getInstance();
-			$result = $custom_functions->saveCustomFunctionsContent($code);
-
-			if ($result === false) {
-				wp_send_json_error([
-					'message' => __('Errore durante il salvataggio del file', 'isigestsyncapi'),
-				]);
-			}
-
-			wp_send_json_success([
-				'message' => __('Funzioni salvate con successo', 'isigestsyncapi'),
-			]);
-		} catch (\Exception $e) {
-			wp_send_json_error([
-				'message' => $e->getMessage(),
 			]);
 		}
 	}

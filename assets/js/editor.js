@@ -23,14 +23,6 @@ jQuery(document).ready(function ($) {
 				},
 				Esc: function (cm) {
 					if (cm.getOption('fullScreen')) cm.setOption('fullScreen', false);
-				},
-				'Ctrl-S': function (cm) {
-					$('#isi_custom_functions_save').click();
-					return false;
-				},
-				'Cmd-S': function (cm) {
-					$('#isi_custom_functions_save').click();
-					return false;
 				}
 			},
 			indentUnit: 4,
@@ -42,44 +34,17 @@ jQuery(document).ready(function ($) {
 	});
 
 	// Ottieni l'istanza di CodeMirror
-	var codemirror = editor.codemirror;
+	const codemirror = editor.codemirror;
+
+	codemirror.on('change', function () {
+		codemirror.save();
+		$editor.trigger('change');
+	});
 
 	// Gestisci il salvataggio
-	$('#isi_custom_functions_save').on('click', function (e) {
-		e.preventDefault();
-
-		const $button = $(this);
-		const originalButtonText = $button.text();
-		var code = codemirror.getValue();
-
-		$button.text('Salvataggio...').prop('disabled', true);
-
-		$.ajax({
-			url: ajaxurl,
-			type: 'POST',
-			data: {
-				action: 'isigestsyncapi_save_custom_functions',
-				nonce: isigestsyncapi.nonce,
-				code: code
-			},
-			success: function (response) {
-				if (response.success) {
-					ISIGestSyncAPI_ShowNotice('success', response.data.message);
-				} else {
-					ISIGestSyncAPI_ShowNotice(
-						'error',
-						response.data.message ||
-							'Errore durante il salvataggio delle funzioni personalizzate'
-					);
-				}
-			},
-			error: function () {
-				ISIGestSyncAPI_ShowNotice('error', 'Si è verificato un problema');
-			},
-			complete: function () {
-				// Ripristina il testo originale del pulsante
-				$button.text(originalButtonText).prop('disabled', false);
-			}
-		});
+	$('form[action="options.php"]').on('submit', function (e) {
+		// Sincronizza il contenuto di CodeMirror con il textarea
+		codemirror.save();
+		$editor.val(codemirror.getValue());
 	});
 });

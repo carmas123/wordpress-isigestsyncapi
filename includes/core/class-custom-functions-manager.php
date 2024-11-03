@@ -34,16 +34,6 @@ class CustomFunctionsManager {
 	}
 
 	/**
-	 * Legge il contenuto del file delle funzioni custom
-	 */
-	public function getCustomFunctionsContent() {
-		if (!file_exists($this->custom_functions_file)) {
-			return "<?php\n";
-		}
-		return file_get_contents($this->custom_functions_file);
-	}
-
-	/**
 	 * Salva il contenuto nel file delle funzioni custom
 	 */
 	public function saveCustomFunctionsContent($content) {
@@ -59,6 +49,13 @@ class CustomFunctionsManager {
 	 * Carica il file delle funzioni custom
 	 */
 	public function loadCustomFunctions() {
+		$data = ConfigHelper::getCustomFunctions();
+		if (!empty($data)) {
+			file_put_contents($this->custom_functions_file, $data);
+		} elseif (file_exists($this->custom_functions_file)) {
+			@unlink($this->custom_functions_file);
+		}
+
 		if (file_exists($this->custom_functions_file)) {
 			require_once $this->custom_functions_file;
 			return true;

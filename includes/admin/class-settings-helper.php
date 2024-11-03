@@ -11,6 +11,7 @@
 namespace ISIGestSyncAPI\Admin;
 
 use ISIGestSyncAPI\Core\ConfigHelper;
+use ISIGestSyncAPI\Core\Utilities;
 
 class SettingsHelper {
 	private $config;
@@ -303,13 +304,9 @@ class SettingsHelper {
                         id="isi_custom_functions_editor"
                         class="large-text code"
                         rows="20"
-                    ><?php echo esc_textarea($field['value']); ?></textarea>
-                    
-                    <div class="isi-settings-button-container" style="margin-top: 10px;">
-                        <button type="button" class="button" id="isi_custom_functions_save">
-                            <?php _e('Salva funzioni', 'isigestsyncapi'); ?>
-                        </button>
-                    </div>
+                    ><?php echo esc_textarea(
+                    	Utilities::ifBlank($field['value'], "<?php\n"),
+                    ); ?></textarea>
     
                     <?php if (!empty($field['description'])): ?>
                         <p class="description"><?php echo esc_html($field['description']); ?></p>
