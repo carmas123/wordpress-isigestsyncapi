@@ -21,39 +21,10 @@ use ISIGestSyncAPI\Core\ISIGestSyncApiNotFoundException;
  */
 class OrderService extends BaseService {
 	/**
-	 * @var string Tabella degli items degli ordini
-	 */
-	private $order_items;
-
-	/**
-	 * @var string Tabella dei meta dati degli items
-	 */
-	private $order_itemmeta;
-
-	/**
-	 * @var string Tabella degli indirizzi degli ordini
-	 */
-	private $order_addresses;
-
-	/**
-	 * @var string Tabella dei dati operativi degli ordini
-	 */
-	private $order_operational_data;
-
-	/**
 	 * Costruttore.
 	 */
 	public function __construct() {
 		parent::__construct();
-
-		global $wpdb;
-
-		// Inizializzazione delle tabelle
-		$this->orders_table = $wpdb->prefix . 'wc_orders';
-		$this->order_items = $wpdb->prefix . 'woocommerce_order_items';
-		$this->order_itemmeta = $wpdb->prefix . 'woocommerce_order_itemmeta';
-		$this->order_addresses = $wpdb->prefix . 'wc_order_addresses';
-		$this->order_operational_data = $wpdb->prefix . 'wc_order_operational_data';
 	}
 
 	/**
@@ -156,7 +127,10 @@ class OrderService extends BaseService {
 
 	private function getToReceiveQuery(): string {
 		global $wpdb;
-		$orders_table = $wpdb->prefix . 'wc_orders';
+		$cot = Utilities::wcCustomOrderTableIsEnabled();
+
+		// Impostiamo la tabella
+		$orders_table = $cot ? $wpdb->prefix . 'wc_orders' : $wpdb->posts;
 
 		// Ottieni gli stati esportabili
 		$exportable_statuses = ConfigHelper::getExportableOrderStatuses();
@@ -174,15 +148,27 @@ class OrderService extends BaseService {
 		// Unisci gli stati con la virgola per la clausola IN
 		$status_list = implode(', ', $formatted_statuses);
 
-		return " SELECT DISTINCT o.`id` AS id
-			FROM {$orders_table} o
-			LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON o.`id` = e.`order_id`
-			WHERE o.status IN ({$status_list})
-			AND (
-				e.order_id IS NULL 
-				OR e.is_exported = 0 
-			)
-		";
+		if (Utilities::wcCustomOrderTableIsEnabled()) {
+			// Selezioniamo gli ordini dalla tabella wc_orders (Nuova Gestione)
+			return " SELECT DISTINCT o.`id` AS id
+				FROM {$orders_table} o
+				LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON o.`id` = e.`order_id`
+				WHERE o.status IN ({$status_list})
+				AND (
+					e.order_id IS NULL 
+					OR e.is_exported = 0 
+				)";
+		} else {
+			// Selezioniamo gli ordini dai Post (Vecchia Gestione)
+			return " SELECT DISTINCT o.`ID` AS id
+				FROM {$orders_table} o
+				LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON o.`ID` = e.`order_id`
+				WHERE o.post_status IN ({$status_list})
+				AND (
+					e.order_id IS NULL 
+					OR e.is_exported = 0 
+				)";
+		}
 	}
 
 	/**
