@@ -70,13 +70,26 @@ class CustomFunctionsManager {
 		return [
 			'isigestsyncapi_func_product_customfields' => [
 				'description' =>
-					'Funzione per gestione i campi personalizzati dei prodotti, deve ritornare un array con la chiave del campo e il valore',
+					'Funzione per la gestione dei campi personalizzati dei prodotti, deve ritornare un array con la chiave del campo e il valore',
 				'parameters' => [
 					'product' => 'Riferimento al prodotto',
 					'data' => 'Dati inviati da ISIGest',
 				],
 				'demo' => 'function isigestsyncapi_func_product_customfields($product, $data) {
 						return ["_campo" => "Valore"];
+					}',
+			],
+
+			'isigestsyncapi_func_product_attributes' => [
+				'description' =>
+					'Funzione per la gestione degli attributi campi personalizzati dei prodotti, deve ritornare un array con la chiave dell\'attributo, utilizzare la funzione "isigestsyncapi_prepare_feature_attribute($value, $label, $key, $hidden = false)" per inizializzare il risultato ',
+				'parameters' => [
+					'product' => 'Riferimento al prodotto',
+					'data' => 'Dati inviati da ISIGest',
+					'attributes' => 'Attributi del prodotto',
+				],
+				'demo' => 'function isigestsyncapi_func_product_attributes($product, $data, $attributes) {
+						return isigestsyncapi_prepare_feature_attribute("Valore", "Titolo attributo", wc_attribute_taxonomy_name("mio_attributo"));
 					}',
 			],
 		];
@@ -154,6 +167,38 @@ class CustomFunctionsManager {
 					$e->getMessage(),
 			);
 			return false;
+		}
+	}
+
+	public function handleProductAttributes($product, $data, $attributes): array {
+		$func_name = 'isigestsyncapi_func_product_attributes';
+
+		try {
+			if (!function_exists($func_name) || !is_callable($func_name)) {
+				return $attributes;
+			}
+
+			$result = call_user_func_array($func_name, [
+				'product' => $product,
+				'data' => $data,
+				'attributes' => $attributes,
+			]);
+
+			if (!is_array($result)) {
+				Utilities::logError(
+					"Handle Attributes - Il risultato della funzione {$func_name} non è un array",
+				);
+				return $attributes;
+			}
+
+			// Aggiungiamo gli attributi personalizzati
+			return array_merge($attributes, $result);
+		} catch (\Exception $e) {
+			Utilities::logError(
+				'Handle Attributes - Errore durante la gestione dei custom fields: ' .
+					$e->getMessage(),
+			);
+			return $attributes;
 		}
 	}
 }

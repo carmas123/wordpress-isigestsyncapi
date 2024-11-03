@@ -641,34 +641,6 @@ class ProductService extends BaseService {
 	}
 
 	/**
-	 * Prepara gli attributi di tipo funzionalità per un prodotto.
-	 *
-	 * Questo metodo crea un array di attributi per una singola funzionalità del prodotto.
-	 * Può essere utilizzato per attributi che non sono varianti, come ad esempio la marca o altre caratteristiche fisse.
-	 *
-	 * @param string $value Il valore dell'attributo.
-	 * @param string $label L'etichetta dell'attributo.
-	 * @param string|null $key La chiave dell'attributo. Se non specificata, verrà generata dal label.
-	 *
-	 * @return array Un array contenente l'attributo preparato.
-	 */
-	private function prepareFeatureAttributes($value, $label, $key, $hidden = false) {
-		$attributes = [];
-
-		// Impostiamo la chiave
-		$key ??= wc_attribute_taxonomy_name($label);
-
-		$attributes[$key] = [
-			'variant' => false,
-			'label' => $label,
-			'value' => $value,
-			'hidden' => (bool) $hidden,
-		];
-
-		return $attributes;
-	}
-
-	/**
 	 * Trova una variazione tramite SKU
 	 *
 	 * @param string $sku        SKU da cercare
@@ -974,6 +946,13 @@ class ProductService extends BaseService {
 		// Flag In Evidenza
 		$this->handleInEvidenza($attributes, $data);
 
+		// Lanciamo la gestione degli Attributi Personalizzati
+		$attributes = $this->custom_functions_manager->handleProductAttributes(
+			$product,
+			$data,
+			$attributes,
+		);
+
 		// Salviamo il prodotto dopo aver impostato gli attributi
 		$product->save();
 
@@ -996,7 +975,7 @@ class ProductService extends BaseService {
 			isset($data['brand']['name']) &&
 			!empty($data['brand']['name'])
 		) {
-			$attributes[] = $this->prepareFeatureAttributes(
+			$attributes[] = isigestsyncapi_prepare_feature_attribute(
 				$data['brand']['name'],
 				'Marca',
 				ConfigHelper::getBrandMetaKey(),
@@ -1011,7 +990,7 @@ class ProductService extends BaseService {
 			isset($data['reference']) &&
 			!empty($data['reference'])
 		) {
-			$attributes[] = $this->prepareFeatureAttributes(
+			$attributes[] = isigestsyncapi_prepare_feature_attribute(
 				$data['reference'],
 				'Codice Produttore',
 				ConfigHelper::getReferenceMetaKey(),
@@ -1036,7 +1015,7 @@ class ProductService extends BaseService {
 
 	private function handleInEvidenza(&$attributes, $data) {
 		if (!$this->config->get('products_dont_sync_featured_flag', false)) {
-			$attributes[] = $this->prepareFeatureAttributes(
+			$attributes[] = isigestsyncapi_prepare_feature_attribute(
 				$data['isigest']['featured'] ? 'Si' : 'No',
 				'In Evidenza',
 				ConfigHelper::getInEvidenzaMetaKey(),

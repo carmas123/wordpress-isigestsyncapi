@@ -213,6 +213,7 @@ class Plugin {
 		// AGGIUNGERE QUI LE DIPENDENZE RICHIESTE SE NECESSARIE
 		// SOLO SE NON GESTITI TRAMITE AUTOLOAD
 		require_once ISIGESTSYNCAPI_PLUGIN_DIR . '/includes/core/class-exceptions.php';
+		require_once ISIGESTSYNCAPI_PLUGIN_DIR . '/includes/core/class-functions.php';
 	}
 
 	/**
