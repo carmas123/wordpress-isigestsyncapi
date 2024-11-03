@@ -65,4 +65,20 @@ class CustomFunctionsManager {
 		}
 		return false;
 	}
+
+	public function getAvailableCustomFunctions(): array {
+		return [
+			'isigestsyncapi_func_product_customfields' => [
+				'description' =>
+					'Funzione per gestione i campi personalizzati dei prodotti, deve ritornare un array con la chiave del campo e il valore',
+				'parameters' => [
+					'product' => 'Riferimento al prodotto',
+					'data' => 'Dati inviati da ISIGest',
+				],
+				'demo' => 'function isigestsyncapi_func_product_customfields($product, $data) {
+						return ["_campo" => "Valore"];
+					}',
+			],
+		];
+	}
 }
