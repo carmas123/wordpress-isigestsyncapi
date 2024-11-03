@@ -520,6 +520,9 @@ class Settings {
 					),
 
 					// Ordini
+					// Stato Ordini da Esportare
+					...$this->buildOrderStatusCheckboxes(),
+
 					$this->buildHTML('orders_setallasexported_button', '', 'orders', 'Strumenti', [
 						$this->helper,
 						'renderOrdersSetAllAsExported',
@@ -568,6 +571,30 @@ class Settings {
 		];
 
 		return $fields;
+	}
+
+	private function buildOrderStatusCheckboxes() {
+		// Ottiene tutti gli stati degli ordini da WooCommerce
+		$statuses = wc_get_order_statuses();
+		$checkboxes = [];
+
+		foreach ($statuses as $status_key => $status_label) {
+			// Rimuove il prefisso 'wc-' dalla chiave
+			$status_key = str_replace('wc-', '', $status_key);
+			if ($status_key === 'shop_order_refund' || $status_key === 'refunded') {
+				// Lo stato "Ordine rimborsato" non viene esportato MAI
+				continue;
+			}
+
+			$checkboxes[] = $this->buildCheckbox(
+				'orders_export_status_' . $status_key,
+				$status_label,
+				'orders',
+				'Stato ordini da esportare',
+			);
+		}
+
+		return $checkboxes;
 	}
 
 	/**

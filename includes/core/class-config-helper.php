@@ -182,4 +182,38 @@ class ConfigHelper extends ConfigBaseHelper {
 	public static function clearCacheStatic() {
 		self::getInstance()->clearCache();
 	}
+
+	/**
+	 * Retrieves the list of exportable order statuses.
+	 *
+	 * This function determines which order statuses are set to be exportable
+	 * based on the plugin configuration. It iterates through all available
+	 * WooCommerce order statuses and checks if each status is marked for export.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return array An array of order status keys that are set to be exportable.
+	 *               Each key is prefixed with 'wc-' as per WooCommerce convention.
+	 */
+	public static function getExportableOrderStatuses(): array {
+		$exportable_statuses = [];
+		$available_statuses = wc_get_order_statuses();
+		$instance = self::getInstance();
+
+		foreach ($available_statuses as $status_key => $status_label) {
+			$key = str_replace('wc-', '', $status_key);
+			if ($key === 'shop_order_refund' || $key === 'refunded') {
+				// Lo stato "Ordine rimborsato" non viene esportato MAI
+				continue;
+			}
+			$option_name = 'orders_export_status_' . $key;
+
+			// Se l'opzione esiste ed è true
+			if ($instance->get($option_name)) {
+				$exportable_statuses[] = $status_key;
+			}
+		}
+
+		return $exportable_statuses;
+	}
 }

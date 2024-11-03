@@ -10,6 +10,7 @@
 
 namespace ISIGestSyncAPI\Services;
 
+use ISIGestSyncAPI\Core\ConfigHelper;
 use ISIGestSyncAPI\Core\Utilities;
 use ISIGestSyncAPI\Core\ISIGestSyncApiNotFoundException;
 
@@ -156,15 +157,31 @@ class OrderService extends BaseService {
 	private function getToReceiveQuery(): string {
 		global $wpdb;
 		$orders_table = $wpdb->prefix . 'wc_orders';
+
+		// Ottieni gli stati esportabili
+		$exportable_statuses = ConfigHelper::getExportableOrderStatuses();
+
+		// Se non ci sono stati esportabili, restituisci una query che non restituirà risultati
+		if (empty($exportable_statuses)) {
+			return "SELECT DISTINCT o.`id` AS id FROM {$orders_table} o WHERE 1=0";
+		}
+
+		// Prepara gli stati per la query aggiungendo il prefisso 'wc-'
+		$formatted_statuses = array_map(function ($status) {
+			return "'" . esc_sql($status) . "'";
+		}, $exportable_statuses);
+
+		// Unisci gli stati con la virgola per la clausola IN
+		$status_list = implode(', ', $formatted_statuses);
+
 		return " SELECT DISTINCT o.`id` AS id
-            FROM {$orders_table} o
-            LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON o.`id` = e.`order_id`
-            WHERE o.status IN ('wc-processing', 'wc-completed')
-			AND o.type NOT IN ('shop_order_refund')
-            AND (
-                e.order_id IS NULL 
-                OR e.is_exported = 0 
-            )
+			FROM {$orders_table} o
+			LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON o.`id` = e.`order_id`
+			WHERE o.status IN ({$status_list})
+			AND (
+				e.order_id IS NULL 
+				OR e.is_exported = 0 
+			)
 		";
 	}
 

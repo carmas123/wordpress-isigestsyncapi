@@ -112,8 +112,13 @@ abstract class ConfigBaseHelper {
 	 * @return boolean
 	 */
 	public function set($key, $value) {
+		// Verifichiamo se la chiave è booleana
+		$is_boolean =
+			in_array($key, $this->boolean_fields, true) ||
+			strpos($key, 'orders_export_status_') === 0;
+
 		// Valida e converte il valore in base al tipo di campo
-		if (in_array($key, $this->boolean_fields, true)) {
+		if ($is_boolean) {
 			$value = filter_var($value, FILTER_VALIDATE_BOOLEAN);
 		} elseif (in_array($key, $this->int_fields, true)) {
 			$value = (int) $value;
