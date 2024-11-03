@@ -150,7 +150,7 @@ class OrderService extends BaseService {
 
 		if (Utilities::wcCustomOrderTableIsEnabled()) {
 			// Selezioniamo gli ordini dalla tabella wc_orders (Nuova Gestione)
-			return " SELECT DISTINCT o.`id` AS id
+			return "SELECT DISTINCT o.`id` AS id
 				FROM {$orders_table} o
 				LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON o.`id` = e.`order_id`
 				WHERE o.status IN ({$status_list})
@@ -160,7 +160,7 @@ class OrderService extends BaseService {
 				)";
 		} else {
 			// Selezioniamo gli ordini dai Post (Vecchia Gestione)
-			return " SELECT DISTINCT o.`ID` AS id
+			return "SELECT DISTINCT o.`ID` AS id
 				FROM {$orders_table} o
 				LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON o.`ID` = e.`order_id`
 				WHERE o.post_status IN ({$status_list})

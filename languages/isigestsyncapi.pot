@@ -2,9 +2,9 @@
 # This file is distributed under the same license as the ISIGest Sync API package.
 msgid ""
 msgstr ""
-"Project-Id-Version: ISIGest Sync API 1.0.56\n"
+"Project-Id-Version: ISIGest Sync API 1.0.57\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/isigestsyncapi\n"
-"POT-Creation-Date: 2024-11-03 07:47:40+00:00\n"
+"POT-Creation-Date: 2024-11-03 08:01:20+00:00\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"

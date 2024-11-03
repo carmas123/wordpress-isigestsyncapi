@@ -300,17 +300,17 @@ class Settings {
 						'Informazioni',
 						[$this->helper, 'renderPluginVersion'],
 					),
-					...!Utilities::wcCustomOrderTableIsEnabled()
-						? [
-							$this->buildHTML(
-								'plugin_version',
-								'Compatibilità',
-								'general',
-								'Problemi',
-								[$this->helper, 'renderWCCustomOrderTableIsNotEnabled'],
-							),
-						]
-						: [],
+					// ...!Utilities::wcCustomOrderTableIsEnabled()
+					// 	? [
+					// 		$this->buildHTML(
+					// 			'plugin_version',
+					// 			'Compatibilità',
+					// 			'general',
+					// 			'Problemi',
+					// 			[$this->helper, 'renderWCCustomOrderTableIsNotEnabled'],
+					// 		),
+					// 	]
+					// 	: [],
 
 					// Categorie
 					$this->buildCheckbox(

@@ -89,7 +89,9 @@ class CustomFunctionsManager {
 					'attributes' => 'Attributi del prodotto',
 				],
 				'demo' => 'function isigestsyncapi_func_product_attributes($product, $data, $attributes) {
-						return isigestsyncapi_prepare_feature_attribute("Valore", "Titolo attributo", wc_attribute_taxonomy_name("mio_attributo"));
+						$attr = isigestsyncapi_prepare_feature_attribute("Valore", "Titolo attributo", wc_attribute_taxonomy_name("mio_attributo"));
+						$attributes[] = $attr;
+						return $attributes;
 					}',
 			],
 		];
@@ -192,7 +194,7 @@ class CustomFunctionsManager {
 			}
 
 			// Aggiungiamo gli attributi personalizzati
-			return array_merge($attributes, $result);
+			return $result;
 		} catch (\Exception $e) {
 			Utilities::logError(
 				'Handle Attributes - Errore durante la gestione dei custom fields: ' .
