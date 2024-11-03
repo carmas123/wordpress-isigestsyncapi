@@ -149,17 +149,7 @@ class CustomFunctionsManager {
 				}
 
 				// Aggiornamento del meta del prodotto
-				$update_result = update_post_meta(
-					$product->get_id(),
-					$sanitized_field_name,
-					$processed_value,
-				);
-
-				if ($update_result === false) {
-					Utilities::logWarn(
-						"Handle Custom Fields - Impossibile aggiornare il meta {$sanitized_field_name} per il prodotto {$product->get_id()}",
-					);
-				}
+				update_post_meta($product->get_id(), $sanitized_field_name, $processed_value);
 			}
 
 			return true;

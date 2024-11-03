@@ -241,6 +241,16 @@ class Settings {
 		return $this->buildSelect($key, $label, $tab, $section, $info, $options);
 	}
 
+	private function buildSelectProductQuantity($label, $key, $tab, $section = '', $info = '') {
+		$options = [
+			'0' => __('Quantità vendibile', 'isigestsyncapi'),
+			'1' => __('Giacenza', 'isigestsyncapi'),
+			'2' => __('Disponibilità', 'isigestsyncapi'),
+		];
+
+		return $this->buildSelect($key, $label, $tab, $section, $info, $options);
+	}
+
 	/**
 	 * Crea il campo memo per la modifica delle funzioni aggiuntive customizzate
 	 *
@@ -382,12 +392,12 @@ class Settings {
 						'Prezzi',
 						'Arrotonda i prezzi IVA escusa a 2 decimali',
 					),
-					$this->buildCheckbox(
-						'products_use_stock_qty',
-						'Importa la giacenza',
+					$this->buildSelectProductQuantity(
+						'Valorizza con',
+						'products_stock_qty',
 						'products',
 						'Inventario',
-						'Valorizza la quantità di inventario con l\'esistenza invece della disponibilità',
+						'Seleziona il campo con il quale valorizzare l\'inventario',
 					),
 					$this->buildCheckbox(
 						'products_multi_warehouse',
