@@ -11,10 +11,9 @@
 namespace ISIGestSyncAPI\Admin;
 
 use ISIGestSyncAPI\Core\ConfigHelper;
-use ISIGestSyncAPI\Core\CustomFunctionsManager;
-use ISIGestSyncAPI\Core\Utilities;
 use ISIGestSyncAPI\Services\CustomerService;
 use ISIGestSyncAPI\Services\OrderService;
+use ISIGestSyncAPI\Services\PushoverService;
 
 /**
  * Classe Settings per la gestione delle impostazioni del plugin.
@@ -287,6 +286,7 @@ class Settings {
 					'orders' => __('Ordini', 'isigestsyncapi'),
 					'advanced' => __('Avanzate', 'isigestsyncapi'),
 					'custom_functions' => __('Funzioni', 'isigestsyncapi'),
+					'pushover' => __('Pushover', 'isigestsyncapi'),
 				],
 				'input' => [
 					// General Settings
@@ -516,6 +516,13 @@ class Settings {
 					),
 
 					// Clienti
+					$this->buildCheckbox(
+						'customers_send_push_on_signedup',
+						'Invia notifica',
+						'customers',
+						'Notifiche',
+						'Invia una notifica quando un nuovo cliente si registra',
+					),
 					$this->buildHTML(
 						'customers_setallasexported_button',
 						'',
@@ -565,6 +572,36 @@ class Settings {
 							],
 						],
 					],
+
+					// Pushover
+					$this->buildCheckbox(
+						'pushover_enabled',
+						'Attiva Pushover',
+						'pushover',
+						'Invio Notifiche',
+						'Abilita l\'invio di notifiche tramite Pushover',
+					),
+					$this->buildField(
+						'pushover_token',
+						'Token',
+						'pushover',
+						'Invio Notifiche',
+						'Token applicazione di Pushover',
+					),
+					$this->buildField(
+						'pushover_userkey',
+						'User Key',
+						'pushover',
+						'Invio Notifiche',
+						'Chiave di autenticazione',
+					),
+					$this->buildField(
+						'pushover_device',
+						'Dispositivo',
+						'pushover',
+						'Invio Notifiche',
+						'Nome del dispositivo sul quale ricevere le notifiche, vuoto per tutti i dispositivi',
+					),
 
 					// Funzioni customizzate
 					$this->buildCustomFunctionsField(),
@@ -688,7 +725,6 @@ class Settings {
 		}
 
 		$command = isset($_POST['command']) ? wp_unslash($_POST['command']) : '';
-
 		switch ($command) {
 			case 'customers_setallasexported':
 				$x = new CustomerService();

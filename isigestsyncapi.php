@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ISIGest Sync API
  * Description: Plugin per la sincronizzazione dei prodotti tramite API
- * Version: 1.0.61
+ * Version: 1.0.64
  * Author: ISIGest S.r.l.
  * Author URI: https://www.isigest.net
  *
@@ -14,16 +14,17 @@
 
 namespace ISIGestSyncAPI;
 
+use ISIGestSyncAPI\Common\PushoverHooks;
 use ISIGestSyncAPI\Core\ConfigHelper;
 use ISIGestSyncAPI\Core\UpgradeHelper;
 
 // Se questo file viene chiamato direttamente, termina.
-if (!defined('ABSPATH')) {
-	exit();
+if (!defined('WPINC')) {
+	die();
 }
 
 // Definizioni costanti
-define('ISIGESTSYNCAPI_VERSION', '1.0.61');
+define('ISIGESTSYNCAPI_VERSION', '1.0.64');
 define('ISIGESTSYNCAPI_PLUGIN_FILE', __FILE__);
 define('ISIGESTSYNCAPI_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ISIGESTSYNCAPI_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -214,6 +215,7 @@ class Plugin {
 		// SOLO SE NON GESTITI TRAMITE AUTOLOAD
 		require_once ISIGESTSYNCAPI_PLUGIN_DIR . '/includes/core/class-exceptions.php';
 		require_once ISIGESTSYNCAPI_PLUGIN_DIR . '/includes/core/class-functions.php';
+		require_once ISIGESTSYNCAPI_PLUGIN_DIR . '/includes/common/class-pushover-hooks.php';
 	}
 
 	/**
@@ -229,6 +231,11 @@ class Plugin {
 
 		// Hooks per WooCommerce
 		add_action('woocommerce_init', [$this, 'initializeWooCommerce']);
+
+		// Aggiungiamo le Hook di Pushover
+		if (ConfigHelper::getPushoverEnabled()) {
+			PushoverHooks::init();
+		}
 	}
 
 	/**

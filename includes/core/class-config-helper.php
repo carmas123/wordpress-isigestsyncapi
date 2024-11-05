@@ -238,4 +238,18 @@ class ConfigHelper extends ConfigBaseHelper {
 
 		return $exportable_statuses;
 	}
+
+	public static function getPushoverEnabled() {
+		$instance = self::getInstance();
+		$enabled = $instance->get('pushover_enabled', false);
+		$token = $instance->get('pushover_token');
+		$user_key = $instance->get('pushover_userkey');
+
+		return $enabled && !empty($token) && !empty($user_key);
+	}
+
+	public static function getPushoverNewCustomerEnabled() {
+		$instance = self::getInstance();
+		return $instance->get('customers_send_push_on_signedup', false);
+	}
 }

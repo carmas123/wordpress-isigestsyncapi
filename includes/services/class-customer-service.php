@@ -179,7 +179,10 @@ class CustomerService extends BaseService {
 			),
 			'company' => $customer->get_billing_company(),
 			'address1' => $customer->get_billing_address_1(),
-			'address2' => $customer->get_billing_address_2(),
+			'address2' =>
+				$customer->get_billing_address_2() !== $customer->get_billing_address_1()
+					? $customer->get_billing_address_2()
+					: '',
 			'postcode' => $customer->get_billing_postcode(),
 			'city' => $customer->get_billing_city(),
 			'state' => $customer->get_billing_state(),
@@ -213,7 +216,10 @@ class CustomerService extends BaseService {
 			),
 			'company' => $customer->get_shipping_company(),
 			'address1' => $customer->get_shipping_address_1(),
-			'address2' => $customer->get_shipping_address_2(),
+			'address2' =>
+				$customer->get_shipping_address_2() !== $customer->get_shipping_address_1()
+					? $customer->get_shipping_address_2()
+					: '',
 			'postcode' => $customer->get_shipping_postcode(),
 			'city' => $customer->get_shipping_city(),
 			'state' => $customer->get_shipping_state(),

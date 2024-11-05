@@ -20,7 +20,23 @@ use ISIGestSyncAPI\Core\ISIGestSyncApiBadRequestException;
  *
  * @since 1.0.0
  */
-class ImageService {
+class ImageService extends BaseService {
+	/**
+	 * Handler per lo status dei prodotti.
+	 *
+	 * @var ProductStatusHandler
+	 */
+	private $status_handler;
+
+	/**
+	 * Costruttore.
+	 */
+	public function __construct() {
+		parent::__construct();
+
+		$this->status_handler = new ProductStatusHandler();
+	}
+
 	/**
 	 * Carica le dipendenze necessarie per la gestione dei media
 	 */
@@ -92,6 +108,15 @@ class ImageService {
 			// Pulisci il file temporaneo
 			if (file_exists($temp_file)) {
 				@unlink($temp_file);
+			}
+
+			// Verifichiamo l'attivazione/disattivazione del prodotto se necessario
+			if ($this->config->get('products_disable_without_image')) {
+				if ($variation_id) {
+					$this->status_handler->checkAndUpdateProductStatus($variation_id, true);
+				} else {
+					$this->status_handler->checkAndUpdateProductStatus($product_id, false);
+				}
 			}
 
 			return ['id' => $attachment_id];

@@ -57,6 +57,12 @@ abstract class ConfigBaseHelper {
 		'products_dont_sync_categories',
 		'products_dont_sync_dimension_and_weight',
 		'products_dont_sync_prices',
+
+		// Clienti
+		'customers_send_push_on_signedup',
+
+		// Pushover
+		'pushover_enabled',
 	];
 
 	/**
@@ -207,6 +213,12 @@ abstract class ConfigBaseHelper {
 			'products_dont_sync_prices' => false,
 			'products_dont_sync_dimension_and_weight' => false,
 			'products_dont_sync_stocks' => false,
+
+			// Clienti
+			'customers_send_push_on_signedup' => false,
+
+			// Pushover
+			'pushover_enabled' => false,
 		];
 
 		foreach ($defaults as $key => $value) {

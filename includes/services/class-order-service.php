@@ -311,7 +311,10 @@ class OrderService extends BaseService {
 			'lastname' => $order->get_billing_last_name(),
 			'company' => $order->get_billing_company(),
 			'address1' => $order->get_billing_address_1(),
-			'address2' => $order->get_billing_address_2(),
+			'address2' =>
+				$order->get_billing_address_2() !== $order->get_billing_address_1()
+					? $order->get_billing_address_2()
+					: '',
 			'postcode' => $order->get_billing_postcode(),
 			'city' => $order->get_billing_city(),
 			'state' => $order->get_billing_state(),
@@ -339,7 +342,10 @@ class OrderService extends BaseService {
 			'lastname' => $order->get_shipping_last_name(),
 			'company' => $order->get_shipping_company(),
 			'address1' => $order->get_shipping_address_1(),
-			'address2' => $order->get_shipping_address_2(),
+			'address2' =>
+				$order->get_shipping_address_2() !== $order->get_shipping_address_1()
+					? $order->get_shipping_address_2()
+					: '',
 			'postcode' => $order->get_shipping_postcode(),
 			'city' => $order->get_shipping_city(),
 			'state' => $order->get_shipping_state(),
