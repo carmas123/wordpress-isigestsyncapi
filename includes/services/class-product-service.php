@@ -863,9 +863,20 @@ class ProductService extends BaseService {
 			}
 		}
 
+		// Questa variabile di controllo indica se è stato trovato almeno un attributo variante
+		$is_variant = false;
+
+		// Otteniamo gli attributi esistenti
+		$existing_attributes = $product->get_attributes();
+
 		foreach ($processed_attributes as $name => $values) {
 			// Verifichiamo l'esistenza dell'attributo
 			ProductAttribute::getOrCreateAttribute($name, $values['label'], $has_archives);
+
+			// Se stiamo aggiornando un attributo esistente, lo rimuoviamo prima
+			if (isset($existing_attributes[$name])) {
+				wp_set_object_terms($product->get_id(), [], $name);
+			}
 
 			$term_ids = [];
 			foreach ($values['values'] as $value) {
@@ -888,11 +899,23 @@ class ProductService extends BaseService {
 				$attribute->set_variation((bool) $values['variant']);
 
 				$product_attributes[] = $attribute;
+
+				$is_variant = $is_variant || (bool) $values['variant'];
 			}
 		}
 
 		if (!empty($product_attributes)) {
-			wp_set_object_terms($product->get_id(), 'variable', 'product_type');
+			if ($is_variant) {
+				wp_set_object_terms($product->get_id(), 'variable', 'product_type');
+			}
+
+			// Manteniamo gli attributi esistenti che non stiamo aggiornando
+			foreach ($existing_attributes as $key => $existing_attribute) {
+				if (!isset($processed_attributes[$key])) {
+					$product_attributes[] = $existing_attribute;
+				}
+			}
+
 			$product->set_attributes($product_attributes);
 			$product->save();
 		}

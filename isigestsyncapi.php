@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ISIGest Sync API
  * Description: Plugin per la sincronizzazione dei prodotti tramite API
- * Version: 1.0.64
+ * Version: 1.0.65
  * Author: ISIGest S.r.l.
  * Author URI: https://www.isigest.net
  *
@@ -24,14 +24,14 @@ if (!defined('WPINC')) {
 }
 
 // Definizioni costanti
-define('ISIGESTSYNCAPI_VERSION', '1.0.64');
+define('ISIGESTSYNCAPI_VERSION', '1.0.65');
 define('ISIGESTSYNCAPI_PLUGIN_FILE', __FILE__);
-define('ISIGESTSYNCAPI_PLUGIN_DIR', plugin_dir_path(__FILE__));
-define('ISIGESTSYNCAPI_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('ISIGESTSYNCAPI_PLUGIN_DIR', plugin_dir_path(ISIGESTSYNCAPI_PLUGIN_FILE));
+define('ISIGESTSYNCAPI_PLUGIN_URL', plugin_dir_url(ISIGESTSYNCAPI_PLUGIN_FILE));
 define('ISIGESTSYNCAPI_LOGS_DIR', ISIGESTSYNCAPI_PLUGIN_DIR . 'logs');
 
 // Carica l'autoloader
-require_once ISIGESTSYNCAPI_PLUGIN_DIR . '/includes/autoload.php';
+require_once ISIGESTSYNCAPI_PLUGIN_DIR . 'includes/autoload.php';
 
 if (!defined('WP_USE_THEMES')) {
 	define('WP_USE_THEMES', false);
@@ -153,16 +153,6 @@ class Plugin {
 			'dashicons-update', // Icona
 			56, // Posizione
 		);
-
-		// Sottomenu opzionale
-		add_submenu_page(
-			'isigestsyncapi-settings', // Parent slug
-			__('Settings', 'isigestsyncapi'), // Titolo pagina
-			__('Settings', 'isigestsyncapi'), // Titolo menu
-			'manage_woocommerce', // Capability richiesta
-			'isigestsyncapi-settings', // Slug menu
-			[$this, 'renderSettingsPage'], // Callback
-		);
 	}
 
 	/**
@@ -213,9 +203,9 @@ class Plugin {
 	private function loadDependencies() {
 		// AGGIUNGERE QUI LE DIPENDENZE RICHIESTE SE NECESSARIE
 		// SOLO SE NON GESTITI TRAMITE AUTOLOAD
-		require_once ISIGESTSYNCAPI_PLUGIN_DIR . '/includes/core/class-exceptions.php';
-		require_once ISIGESTSYNCAPI_PLUGIN_DIR . '/includes/core/class-functions.php';
-		require_once ISIGESTSYNCAPI_PLUGIN_DIR . '/includes/common/class-pushover-hooks.php';
+		require_once ISIGESTSYNCAPI_PLUGIN_DIR . 'includes/core/class-exceptions.php';
+		require_once ISIGESTSYNCAPI_PLUGIN_DIR . 'includes/core/class-functions.php';
+		require_once ISIGESTSYNCAPI_PLUGIN_DIR . 'includes/common/class-pushover-hooks.php';
 	}
 
 	/**

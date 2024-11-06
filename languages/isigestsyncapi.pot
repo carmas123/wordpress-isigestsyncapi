@@ -2,9 +2,9 @@
 # This file is distributed under the same license as the ISIGest Sync API package.
 msgid ""
 msgstr ""
-"Project-Id-Version: ISIGest Sync API 1.0.64\n"
+"Project-Id-Version: ISIGest Sync API 1.0.65\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/isigestsyncapi\n"
-"POT-Creation-Date: 2024-11-04 19:00:26+00:00\n"
+"POT-Creation-Date: 2024-11-06 16:00:53+00:00\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -180,27 +180,23 @@ msgstr ""
 msgid "ISIGest Sync"
 msgstr ""
 
-#: isigestsyncapi.php:160 isigestsyncapi.php:161
-msgid "Settings"
-msgstr ""
-
-#: isigestsyncapi.php:252
+#: isigestsyncapi.php:242
 msgid "ISIGest Sync API richiede WooCommerce per funzionare."
 msgstr ""
 
-#: isigestsyncapi.php:294
+#: isigestsyncapi.php:284
 msgid "Impostazioni"
 msgstr ""
 
-#: isigestsyncapi.php:394
+#: isigestsyncapi.php:384
 msgid "Esp."
 msgstr ""
 
-#: isigestsyncapi.php:426
+#: isigestsyncapi.php:416
 msgid "Ordine esportato"
 msgstr ""
 
-#: isigestsyncapi.php:430
+#: isigestsyncapi.php:420
 msgid "Ordine non esportato"
 msgstr ""
 
