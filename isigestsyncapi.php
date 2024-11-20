@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ISIGest Sync API
  * Description: Plugin per la sincronizzazione dei prodotti tramite API
- * Version: 1.0.65
+ * Version: 1.0.67
  * Author: ISIGest S.r.l.
  * Author URI: https://www.isigest.net
  *
@@ -24,7 +24,7 @@ if (!defined('WPINC')) {
 }
 
 // Definizioni costanti
-define('ISIGESTSYNCAPI_VERSION', '1.0.65');
+define('ISIGESTSYNCAPI_VERSION', '1.0.67');
 define('ISIGESTSYNCAPI_PLUGIN_FILE', __FILE__);
 define('ISIGESTSYNCAPI_PLUGIN_DIR', plugin_dir_path(ISIGESTSYNCAPI_PLUGIN_FILE));
 define('ISIGESTSYNCAPI_PLUGIN_URL', plugin_dir_url(ISIGESTSYNCAPI_PLUGIN_FILE));
@@ -319,14 +319,14 @@ class Plugin {
 
 		wp_enqueue_style(
 			'isigestsyncapi-admin',
-			plugin_dir_url(ISIGESTSYNCAPI_PLUGIN_FILE) . 'assets/css/admin.css',
+			ISIGESTSYNCAPI_PLUGIN_URL . 'assets/css/admin.css',
 			[],
 			ISIGESTSYNCAPI_VERSION,
 		);
 
 		wp_enqueue_script(
 			'isigestsyncapi-admin',
-			plugin_dir_url(ISIGESTSYNCAPI_PLUGIN_FILE) . 'assets/js/admin.js',
+			ISIGESTSYNCAPI_PLUGIN_URL . 'assets/js/admin.js',
 			['jquery'],
 			ISIGESTSYNCAPI_VERSION,
 			true,

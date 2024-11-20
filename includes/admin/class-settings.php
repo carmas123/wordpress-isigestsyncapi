@@ -13,7 +13,6 @@ namespace ISIGestSyncAPI\Admin;
 use ISIGestSyncAPI\Core\ConfigHelper;
 use ISIGestSyncAPI\Services\CustomerService;
 use ISIGestSyncAPI\Services\OrderService;
-use ISIGestSyncAPI\Services\PushoverService;
 
 /**
  * Classe Settings per la gestione delle impostazioni del plugin.
@@ -41,6 +40,7 @@ class Settings {
 	 * @var string
 	 */
 	private $active_tab;
+
 	/**
 	 * Percorso del file di debug log.
 	 *
@@ -55,7 +55,7 @@ class Settings {
 		$this->helper = new SettingsHelper();
 		$this->config = ConfigHelper::getInstance();
 		$this->active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'general';
-		$this->debug_log_file = $log_file = ISIGESTSYNCAPI_LOGS_DIR . '/isigestsyncapi.log';
+		$this->debug_log_file = ISIGESTSYNCAPI_LOGS_DIR . '/isigestsyncapi.log';
 
 		// Aggiungi gli script di CodeMirror
 		add_action('admin_enqueue_scripts', [$this, 'enqueue_editor_scripts']);

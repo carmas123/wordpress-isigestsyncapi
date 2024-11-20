@@ -87,7 +87,7 @@ class StockService extends BaseService {
 		}
 
 		// Impostiamo il Magazzino
-		$warehouse = Utilities::ifBlank($data['warehouse'], '@@');
+		$warehouse = Utilities::ifBlank($data['warehouse'] ?? '', '@@');
 
 		// Gestiamo il magazzino multiplo se abilitato
 		if ($warehouse === '@@') {
@@ -166,6 +166,7 @@ class StockService extends BaseService {
 		if ($variation_id) {
 			$variation = wc_get_product($variation_id);
 			if ($variation) {
+				$variation->set_manage_stock(true);
 				$variation->set_stock_quantity($new_quantity);
 				$variation->set_stock_status($new_quantity > 0 ? 'instock' : 'outofstock');
 				$variation->save();
@@ -178,6 +179,7 @@ class StockService extends BaseService {
 		} else {
 			$product = wc_get_product($product_id);
 			if ($product && !$product->is_type('variable')) {
+				$product->set_manage_stock(true);
 				$product->set_stock_quantity($new_quantity);
 				$product->set_stock_status($new_quantity > 0 ? 'instock' : 'outofstock');
 				$product->save();
@@ -231,6 +233,7 @@ class StockService extends BaseService {
 			}
 		}
 
+		$product->set_manage_stock(true);
 		$product->set_stock_quantity($total_stock);
 		$product->set_stock_status($total_stock > 0 ? 'instock' : 'outofstock');
 		$product->save();
