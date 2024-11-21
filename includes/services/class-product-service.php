@@ -855,7 +855,7 @@ class ProductService extends BaseService {
 					$processed_attributes[$key] = [
 						'label' => $value['label'],
 						'variant' => $value['variant'] ? 1 : 0,
-						'hidden' => $value['hidden'] ? 1 : 0,
+						'hidden' => isset($value['hidden']) && $value['hidden'] ? 1 : 0,
 					];
 					$processed_attributes[$key]['values'] = [];
 				}
@@ -1134,7 +1134,7 @@ class ProductService extends BaseService {
 				if (!empty($data[$type_key]) && !empty($data[$value_key])) {
 					$attr_label = $data[$type_key];
 					$attr_name = wc_attribute_taxonomy_name($attr_label);
-					$attributes[$attr_name] = $data[$value_key];
+					$attributes[$attr_name] = wc_sanitize_taxonomy_name($data[$value_key]);
 				}
 			}
 		}

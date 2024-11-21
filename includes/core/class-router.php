@@ -316,5 +316,22 @@ class Router {
 		if (!did_action('woocommerce_after_register_post_type')) {
 			do_action('woocommerce_after_register_post_type');
 		}
+
+		if (!class_exists('ActionScheduler_DataController')) {
+			include_once WP_PLUGIN_DIR .
+				'/woocommerce/packages/action-scheduler/action-scheduler.php';
+			\ActionScheduler_DataController::init();
+		}
+
+		if (!isset($GLOBALS['wpdb']->actionscheduler_actions)) {
+			$GLOBALS['wpdb']->actionscheduler_actions =
+				$GLOBALS['wpdb']->prefix . 'actionscheduler_actions';
+			$GLOBALS['wpdb']->actionscheduler_claims =
+				$GLOBALS['wpdb']->prefix . 'actionscheduler_claims';
+			$GLOBALS['wpdb']->actionscheduler_groups =
+				$GLOBALS['wpdb']->prefix . 'actionscheduler_groups';
+			$GLOBALS['wpdb']->actionscheduler_logs =
+				$GLOBALS['wpdb']->prefix . 'actionscheduler_logs';
+		}
 	}
 }
