@@ -215,7 +215,7 @@ class ApiHandler {
 				throw new ISIGestSyncApiBadRequestException('ID ordine non specificato');
 			}
 
-			return $this->order_service->setAsReceived($body);
+			return $this->order_service->setAsReceived($body['id']);
 		} catch (ISIGestSyncApiException $e) {
 			throw $e;
 		} catch (\Exception $e) {
