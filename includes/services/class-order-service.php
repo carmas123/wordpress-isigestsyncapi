@@ -285,6 +285,15 @@ class OrderService extends BaseService {
 	 * @return bool
 	 */
 	private function shouldExportOrder($order, $export_bankwire, $export_check) {
+		if (
+			!$order ||
+			$order instanceof WC_Order_Refund ||
+			$order->get_type() === 'shop_order_refund'
+		) {
+			// È un reso oppure ordine non valido
+			return false;
+		}
+
 		$payment_method = $order->get_payment_method();
 
 		if ($payment_method === 'bacs' && !$export_bankwire) {

@@ -10,10 +10,7 @@
 
 namespace ISIGestSyncAPI\Services;
 
-use ISIGestSyncAPI\Core\ConfigHelper;
-use ISIGestSyncAPI\Core\DbHelper;
 use ISIGestSyncAPI\Core\Utilities;
-use ISIGestSyncAPI\Core\ISIGestSyncApiException;
 use ISIGestSyncAPI\Core\ISIGestSyncApiBadRequestException;
 use ISIGestSyncAPI\Core\ISIGestSyncApiNotFoundException;
 
@@ -83,18 +80,35 @@ class CustomerService extends BaseService {
 
 		// Inizializzazione della tabella di lookup
 		$customer_lookup_table = $wpdb->prefix . 'wc_customer_lookup';
+		$order_stats_table = $wpdb->prefix . 'wc_order_stats';
+		$users_table = $wpdb->prefix . 'users';
 
 		return "SELECT DISTINCT cl.customer_id AS id
             FROM {$customer_lookup_table} cl
             LEFT JOIN {$wpdb->prefix}isi_api_export_customer e ON cl.customer_id = e.customer_id
-            WHERE cl.user_id IS NOT NULL
+    		LEFT JOIN {$order_stats_table} os ON cl.customer_id = os.customer_id
+        	INNER JOIN {$users_table} u ON cl.user_id = u.ID
+        	WHERE cl.user_id IS NOT NULL
 				AND cl.user_id > 0
-				AND
-				(
-                e.customer_id IS NULL 
-                OR e.is_exported = 0 
-            	)
-        ";
+				AND u.user_status = 0
+				AND (
+					e.customer_id IS NULL 
+					OR e.is_exported = 0 
+				)
+				AND (
+					/* Utente ha ordini validi */
+					os.status IN ('wc-completed', 'wc-processing', 'wc-on-hold')
+					OR 
+					/* OPPURE utente è valido (verifica custom) */
+					EXISTS (
+						SELECT 1 FROM {$wpdb->usermeta} um 
+						WHERE um.user_id = cl.user_id 
+						AND um.meta_key = 'account_status'
+						AND um.meta_value = 'active'
+					)
+				)
+        	ORDER BY 1 ASC
+		";
 	}
 
 	/**
