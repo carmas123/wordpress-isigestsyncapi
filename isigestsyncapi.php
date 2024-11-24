@@ -5,6 +5,8 @@
  * Version: 1.0.70
  * Author: ISIGest S.r.l.
  * Author URI: https://www.isigest.net
+ * Requires at least: 6.0
+ * Requires PHP: 7.4
  *
  * @package    ISIGestSyncAPI
  * @author     ISIGest S.r.l.
