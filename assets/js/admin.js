@@ -263,4 +263,75 @@ jQuery(document).ready(function ($) {
 		'click',
 		handleCommandButtonClick('orders_setallasexported')
 	);
+	$('#isi_products_clear_exported_history_button').on(
+		'click',
+		handleCommandButtonClick('products_clearexportedhistory')
+	);
+
+	// Gestione click sulla cella di esportazione
+	$(document).on('click', '.isigest-export-status', function (e) {
+		e.preventDefault();
+		e.stopPropagation(); // Ferma la propagazione dell'evento
+
+		const $statusCell = $(this);
+		const orderId = $statusCell.data('order-id');
+		const $icon = $statusCell.find('.dashicons');
+
+		// Disabilita temporaneamente il click
+		$statusCell.css('pointer-events', 'none');
+
+		// Aggiungi classe di caricamento
+		$icon
+			.removeClass('dashicons-yes-alt dashicons-no-alt')
+			.addClass('dashicons-update spinning')
+			.css('color', '#72777c'); // Colore grigio standard di WordPress
+
+		$.ajax({
+			url: isigestsyncapi.ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'isigestsyncapi_toggle_export_status',
+				order_id: orderId,
+				nonce: isigestsyncapi.nonce
+			},
+			success: function (response) {
+				if (response.success) {
+					// Aggiorna l'icona in base al nuovo stato
+					$icon.removeClass('dashicons-update spinning');
+					if (response.data.is_exported) {
+						$icon
+							.addClass('dashicons-yes-alt')
+							.css('color', '#2ea2cc')
+							.attr('title', 'Ordine esportato');
+					} else {
+						$icon
+							.addClass('dashicons-no-alt')
+							.css('color', '#dc3232')
+							.attr('title', 'Ordine non esportato');
+					}
+				} else {
+					alert("Errore durante l'aggiornamento dello stato: " + response.data.message);
+					$icon
+						.removeClass('dashicons-update spinning')
+						.addClass(
+							$statusCell.hasClass('exported')
+								? 'dashicons-yes-alt'
+								: 'dashicons-no-alt'
+						);
+				}
+			},
+			error: function () {
+				alert('Errore di comunicazione con il server');
+				$icon
+					.removeClass('dashicons-update spinning')
+					.addClass(
+						$statusCell.hasClass('exported') ? 'dashicons-yes-alt' : 'dashicons-no-alt'
+					);
+			},
+			complete: function () {
+				// Riabilita il click
+				$statusCell.css('pointer-events', 'auto');
+			}
+		});
+	});
 });

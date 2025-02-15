@@ -40,6 +40,28 @@ class BaseService extends BaseConfig {
 	}
 
 	/**
+	 * Trova una variazione tramite SKU
+	 *
+	 * @param string $sku        SKU da cercare
+	 * @return int|null
+	 */
+	protected function findVariationBySku($sku) {
+		global $wpdb;
+
+		$product_id = $wpdb->get_var(
+			$wpdb->prepare(
+				"
+            SELECT post_id FROM {$wpdb->postmeta}
+            WHERE meta_key='_sku' AND meta_value=%s LIMIT 1",
+				$sku,
+			),
+		);
+		Utilities::logDbResultN($product_id);
+
+		return $product_id ? (int) $product_id : null;
+	}
+
+	/**
 	 * Utility per trovare un prodotto tramite SKU in WooCommerce.
 	 *
 	 * @param string $sku Lo SKU da cercare.
@@ -56,5 +78,20 @@ class BaseService extends BaseConfig {
 		}
 
 		return $product_id;
+	}
+
+	/**
+	 * Recupera l'aliquota IVA del prodotto.
+	 *
+	 * @param \WC_Product $product
+	 * @return float
+	 */
+	protected function getProductTaxRate($product) {
+		$tax_rates = \WC_Tax::get_rates($product->get_tax_class());
+		if (!empty($tax_rates)) {
+			$first_rate = reset($tax_rates);
+			return (float) $first_rate['rate'];
+		}
+		return 0.0;
 	}
 }

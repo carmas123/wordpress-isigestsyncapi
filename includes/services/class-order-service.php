@@ -41,7 +41,17 @@ class OrderService extends BaseService {
 				throw new ISIGestSyncApiNotFoundException('Ordine non trovato');
 			}
 
-			$items = $this->getOrderItems($order);
+			// Verifichiamo se il plugin Sweezy è attivo (Swipo)
+			$sweezy_plugin_enabled = is_plugin_active('sweezy-transactions/sweezy-transaction.php');
+			// Gestiamo i totali Sweezy
+			$sweezy_total = $sweezy_plugin_enabled ? $order->get_meta('total_sweezy') : 0;
+
+			// Verifichiamo se l'ordine è pagato con Sweezy
+			$order_paid_with_sweezy = $sweezy_plugin_enabled && $sweezy_total > 0;
+
+			// Leggiamo gli articoli dell'ordine
+			$items = $this->getOrderItems($order, $order_paid_with_sweezy);
+
 			// Verifichiamo che ci sia almeno una riga valida altrimenti non possiamo esportare l'ordine
 			if (empty($items)) {
 				throw new ISIGestSyncApiNotFoundException(
@@ -49,19 +59,26 @@ class OrderService extends BaseService {
 				);
 			}
 
+			// Totale pagato
+			$total_paid = $order_paid_with_sweezy
+				? (float) $sweezy_total
+				: (float) $order->get_total();
+
 			$data = [
 				'id' => $order->get_id(),
 				'reference' => $order->get_order_number(),
 				'date' => Utilities::dateToISO($order->get_date_created()->date('Y-m-d H:i:s')),
-				'payment' => $this->formatPaymentMethod($order->get_payment_method_title()),
+				'payment' => $order_paid_with_sweezy
+					? 'Sweezy'
+					: $this->formatPaymentMethod($order->get_payment_method_title()),
 				'shipping_cost' => (float) $order->get_shipping_total(),
 				'shipping_cost_wt' =>
 					(float) ($order->get_shipping_total() + $order->get_shipping_tax()),
 				'discounts' => (float) $order->get_discount_total(),
 				'discounts_wt' =>
 					(float) ($order->get_discount_total() + $order->get_discount_tax()),
-				'total_paid' => (float) $order->get_total(),
-				'total' => (float) $order->get_total(),
+				'total_paid' => $total_paid,
+				'total' => (float) $total_paid,
 				'status' => $order->get_status(),
 				'status_name' => \wc_get_order_status_name($order->get_status()),
 				'source' => $this->determineOrderSource($order),
@@ -70,7 +87,7 @@ class OrderService extends BaseService {
 				'customer' => $this->getCustomerData($order),
 				'address_invoice' => self::billingAddressToData($order),
 				'address_shipping' => self::shippingAddressToData($order),
-				'items' => $this->getOrderItems($order),
+				'items' => $this->getOrderItems($order, $sweezy_plugin_enabled),
 			];
 
 			// Aggiunge ID marketplace se necessario
@@ -212,7 +229,7 @@ class OrderService extends BaseService {
 	 * @param \WC_Order $order
 	 * @return array
 	 */
-	private function getOrderItems($order) {
+	private function getOrderItems($order, $order_is_paid_with_sweezy) {
 		$items = [];
 
 		foreach ($order->get_items() as $item) {
@@ -227,12 +244,49 @@ class OrderService extends BaseService {
 				continue;
 			}
 
-			if ($product->is_type('variant')) {
+			if (ProductService::isVariation($product)) {
 				$post_id = $product->get_parent_id();
 				$variant_id = $product->get_id();
 			} else {
 				$post_id = $product->get_id();
 				$variant_id = 0;
+			}
+
+			// Quantità
+			$quantity = (float) $item->get_quantity();
+
+			// Impostiamo i totali
+			$total = $quantity ? (float) $item->get_total() : 0;
+			$total_wt = $quantity ? (float) ($item->get_total() + $item->get_total_tax()) : 0;
+
+			// Calcoliamo i prezzi unitari
+			$price = $quantity ? (float) $item->get_total() / $item->get_quantity() : 0;
+			$price_wt = $quantity
+				? (float) ($item->get_total() + $item->get_total_tax()) / $item->get_quantity()
+				: 0;
+
+			// Calcoliamo la Percentuale IVA
+			$tax_percentage = 0.0;
+			$tax_class = $item->get_tax_class();
+			$tax_rates = \WC_Tax::get_rates($tax_class);
+			if (!empty($tax_rates)) {
+				$first_rate = reset($tax_rates);
+				$tax_percentage = (float) $first_rate['rate'];
+			}
+
+			// Nel caso in cui c'è la gestione Sweezy, leggiamo i meta data dell'item
+			if ($order_is_paid_with_sweezy) {
+				// Leggiamo il prezzo unitario Sweezy, perchè quando un ordine è pagato con Sweezy
+				// allora nell'ordine viene originale di WooCommerce c'è 0 perchè il prezzo viene gestito
+				// tramite un metacampo
+				$price = (float) $item->get_meta('Prezzo Unitario Sweezy');
+
+				// Calcoliamo il prezzo IVA inclusa
+				$price_wt = $price * (1 + $tax_percentage / 100);
+
+				// Ricalcoliamo i totali arrotondati
+				$total = round($price * $quantity, 2);
+				$total_wt = round($price_wt * $quantity, 2);
 			}
 
 			$items[] = [
@@ -250,30 +304,16 @@ class OrderService extends BaseService {
 					'depth' => (float) $product->get_length(),
 					'tax_rate' => $this->getProductTaxRate($product),
 				],
-				'quantity' => (float) $item->get_quantity(),
-				'price' => (float) $product->get_regular_price(),
-				'price_wt' => (float) wc_get_price_including_tax($product),
-				'total' => (float) $item->get_total(),
-				'total_wt' => (float) ($item->get_total() + $item->get_total_tax()),
+				'quantity' => $quantity,
+				'price' => $price,
+				'price_wt' => $price_wt,
+				'total' => $total,
+				'total_wt' => $total_wt,
+				'tax_rate' => $tax_percentage,
 			];
 		}
 
 		return $items;
-	}
-
-	/**
-	 * Recupera l'aliquota IVA del prodotto.
-	 *
-	 * @param \WC_Product $product
-	 * @return float
-	 */
-	private function getProductTaxRate($product) {
-		$tax_rates = \WC_Tax::get_rates($product->get_tax_class());
-		if (!empty($tax_rates)) {
-			$first_rate = reset($tax_rates);
-			return (float) $first_rate['rate'];
-		}
-		return 0.0;
 	}
 
 	/**
@@ -488,6 +528,8 @@ class OrderService extends BaseService {
 
 		// Leggiamo gli ordini da esportare
 		$items = $wpdb->get_results($this->getToReceiveQuery(), ARRAY_A);
+
+		Utilities::logDebug('Impostando ordini come esportati: ' . count($items));
 
 		foreach ($items as $item) {
 			try {

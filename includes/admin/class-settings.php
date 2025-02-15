@@ -13,6 +13,7 @@ namespace ISIGestSyncAPI\Admin;
 use ISIGestSyncAPI\Core\ConfigHelper;
 use ISIGestSyncAPI\Services\CustomerService;
 use ISIGestSyncAPI\Services\OrderService;
+use ISIGestSyncAPI\Services\ProductService;
 
 /**
  * Classe Settings per la gestione delle impostazioni del plugin.
@@ -353,6 +354,14 @@ class Settings {
 						'Usa il codice produttore invece dello SKU',
 					),
 					$this->buildCheckbox(
+						'products_passive_mode',
+						'Modalità Passiva',
+						'products',
+						'Modalità',
+						'ATTENZIONE!! Gli SKU di WooCommerce verranno valorizzati e sostituiti con i codici prodotti ISIGest',
+					),
+
+					$this->buildCheckbox(
 						'products_disable_outofstock',
 						'Non disponibili',
 						'products',
@@ -445,6 +454,15 @@ class Settings {
 						'Nascosto',
 						'products',
 						'Campo "In Evidenza"',
+					),
+
+					// Strumenti - Prodotti
+					$this->buildHTML(
+						'products_clear_exported_history_button',
+						'',
+						'products',
+						'Strumenti',
+						[$this->helper, 'renderProductsClearExportedHistory'],
 					),
 
 					// Products Don't Sync Settings
@@ -733,6 +751,10 @@ class Settings {
 			case 'orders_setallasexported':
 				$x = new OrderService();
 				$x->setAsReceivedAll();
+				break;
+			case 'products_clearexportedhistory':
+				$x = new ProductService();
+				$x->clearExportedHistory();
 				break;
 			default:
 				wp_send_json_error([

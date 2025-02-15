@@ -164,23 +164,21 @@ class ApiHandler {
 	/**
 	 * Conferma la ricezione di un prodotto.
 	 *
-	 * @param array $request I dati della richiesta.
+	 * @param array $body I dati della richiesta.
 	 * @return bool
 	 * @throws ISIGestSyncApiException Se la richiesta non è valida.
 	 */
-	public function postProductReceived($request) {
+	public function postProductReceived($body) {
 		try {
-			if (!isset($request['body'])) {
-				throw new ISIGestSyncApiBadRequestException('Body non valido');
-			}
-
-			$body = $request['body'];
-
 			if (!isset($body['id']) || empty($body['id'])) {
 				throw new ISIGestSyncApiBadRequestException('ID prodotto non specificato');
 			}
 
-			return $this->product_service->setProductAsReceived($body);
+			if (!isset($body['code']) || empty($body['code'])) {
+				throw new ISIGestSyncApiBadRequestException('Codice prodotto non specificato');
+			}
+
+			return $this->product_service->setProductAsReceived($body, $body['code']);
 		} catch (ISIGestSyncApiException $e) {
 			throw $e;
 		} catch (\Exception $e) {

@@ -11,7 +11,6 @@
 namespace ISIGestSyncAPI\Services;
 
 use ISIGestSyncAPI\Core\ConfigHelper;
-use ISIGestSyncAPI\Core\DbHelper;
 use ISIGestSyncAPI\Core\Utilities;
 
 /**
@@ -47,10 +46,16 @@ class ProductStatusHandler extends BaseService {
 
 		$should_be_active = !$force_disable && self::shouldProductBeActive($product);
 		$current_status = $product->get_status();
+		$current_catalog_visibility = $product->get_catalog_visibility();
 		$new_status = $should_be_active ? 'publish' : ($is_variant ? 'private' : 'draft');
+		$new_catalog_visibility = $should_be_active ? 'visible' : 'hidden';
 
-		if ($current_status !== $new_status) {
+		if (
+			$current_status !== $new_status ||
+			$current_catalog_visibility !== $new_catalog_visibility
+		) {
 			$product->set_status($new_status);
+			$product->set_catalog_visibility($new_catalog_visibility);
 			$product->save();
 
 			// Log del cambio di stato
@@ -86,7 +91,7 @@ class ProductStatusHandler extends BaseService {
 
 		// Ottieni il prodotto variante
 		$variant = wc_get_product($product_id);
-		if (!$variant || !$variant->is_type('variation')) {
+		if (!$variant || !ProductService::isVariation($variant)) {
 			return false;
 		}
 
@@ -133,6 +138,7 @@ class ProductStatusHandler extends BaseService {
 		// Se tutte le varianti sono disattivate, disattiva il padre
 		if ($all_inactive && $parent->get_status() !== 'draft') {
 			$parent->set_status('draft');
+			$parent->set_catalog_visibility('hidden');
 			$parent->save();
 
 			// Log del cambio di stato
@@ -149,6 +155,7 @@ class ProductStatusHandler extends BaseService {
 		// Se almeno una variante è attiva, assicurati che il padre sia pubblicato
 		if (!$all_inactive && $parent->get_status() !== 'publish') {
 			$parent->set_status('publish');
+			$parent->set_catalog_visibility('visible');
 			$parent->save();
 
 			// Log del cambio di stato
@@ -172,7 +179,7 @@ class ProductStatusHandler extends BaseService {
 	 * @return boolean
 	 */
 	public static function shouldProductBeActive($product) {
-		if ($product->is_type('variable')) {
+		if (ProductService::isVariable($product)) {
 			// La disattivazione viene eseguita solo per le varianti o prodotti semplici
 			return true;
 		}

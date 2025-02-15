@@ -353,6 +353,14 @@ class SettingsHelper {
         <?php
 	}
 
+	public function renderProductsClearExportedHistory() {
+		?>
+            <button type="button" class="button" id="isi_products_clear_exported_history_button">
+                <?php echo esc_html('Elimina lo storico dei prodotti'); ?>
+            </button>
+        <?php
+	}
+
 	// Questo metoto serve a mostrare un avviso quando la tabella degli ordini non è abilitata in WooCommerce
 	public function renderWCCustomOrderTableIsNotEnabled() {
 		?>

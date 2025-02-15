@@ -47,6 +47,13 @@ class ProductService extends BaseService {
 	private $custom_functions_manager;
 
 	/**
+	 * Modalità passiva
+	 *
+	 * @var bool $passive_mode Se la modalità è passiva.
+	 */
+	private $passive_mode = false;
+
+	/**
 	 * Costruttore.
 	 */
 	public function __construct() {
@@ -57,6 +64,9 @@ class ProductService extends BaseService {
 
 		$this->status_handler = new ProductStatusHandler();
 		$this->custom_functions_manager = CustomFunctionsManager::getInstance();
+
+		// Modalità passiva
+		$this->passive_mode = ConfigHelper::getInstance()->get('products_passive_mode', false);
 	}
 
 	/**
@@ -120,7 +130,7 @@ class ProductService extends BaseService {
 		$this->historyProduct($product->get_id(), 0, $isigest);
 
 		// Aggiorniamo lo stock se non è un prodotto con varianti
-		if (!$product->is_type('variable')) {
+		if (!ProductService::isVariable($product)) {
 			StockService::updateProductStock($product->get_id(), $data);
 		}
 
@@ -167,10 +177,11 @@ class ProductService extends BaseService {
 			'images' => $this->getProductImages($product),
 			'brand' => $this->getProductBrand($product),
 			'ean13' => get_post_meta($product->get_id(), ConfigHelper::getBarcodeMetaKey(), true),
+			'tax_rate' => $this->getProductTaxRate($product),
 		];
 
 		// Aggiungiamo le varianti se il prodotto è variabile
-		if ($product->is_type('variable')) {
+		if (ProductService::isVariable($product)) {
 			$data['variants'] = $this->getProductVariants($product);
 		}
 
@@ -413,9 +424,10 @@ class ProductService extends BaseService {
 	 * Imposta un prodotto come ricevuto.
 	 *
 	 * @param array $data I dati del prodotto.
+	 * @param string|null $isigest_code Il codice prodotto ISIGest.
 	 * @return boolean
 	 */
-	public function setProductAsReceived($data) {
+	public function setProductAsReceived($data, $isigest_code = null) {
 		global $wpdb;
 
 		$product_id = (int) $data['id'];
@@ -433,6 +445,13 @@ class ProductService extends BaseService {
 			],
 			['%d', '%d', '%s'],
 		);
+
+		// Nella modalità passiva aggiorniamo lo SKU del prodotto
+		if ($this->passive_mode && !empty($isigest_code)) {
+			$product->set_sku($isigest_code);
+			$product->save();
+		}
+
 		Utilities::logDbResult($result);
 
 		return $result !== false;
@@ -519,7 +538,7 @@ class ProductService extends BaseService {
 		// Immagine principale
 		if ($product->get_image_id()) {
 			$images[] = [
-				'id' => $product->get_image_id(),
+				'id' => (int) $product->get_image_id(),
 				'src' => wp_get_attachment_url($product->get_image_id()),
 				'position' => 0,
 				'is_main' => true,
@@ -531,7 +550,7 @@ class ProductService extends BaseService {
 		$position = 1;
 		foreach ($gallery_images as $image_id) {
 			$images[] = [
-				'id' => $image_id,
+				'id' => (int) $image_id,
 				'src' => wp_get_attachment_url($image_id),
 				'position' => $position++,
 				'is_main' => false,
@@ -548,7 +567,7 @@ class ProductService extends BaseService {
 	 * @return array
 	 */
 	private function getProductVariants($product) {
-		if (!$product->is_type('variable')) {
+		if (!ProductService::isVariable($product)) {
 			return [];
 		}
 
@@ -638,28 +657,6 @@ class ProductService extends BaseService {
 		}
 
 		return $attributes;
-	}
-
-	/**
-	 * Trova una variazione tramite SKU
-	 *
-	 * @param string $sku        SKU da cercare
-	 * @return int|null
-	 */
-	protected function findVariationBySku($sku) {
-		global $wpdb;
-
-		$product_id = $wpdb->get_var(
-			$wpdb->prepare(
-				"
-            SELECT post_id FROM {$wpdb->postmeta}
-            WHERE meta_key='_sku' AND meta_value=%s LIMIT 1",
-				$sku,
-			),
-		);
-		Utilities::logDbResultN($product_id);
-
-		return $product_id ? (int) $product_id : null;
 	}
 
 	/**
@@ -934,7 +931,7 @@ class ProductService extends BaseService {
 			!empty($data['attributes']);
 
 		// Convertiamo il prodotto in variabile se non lo è già
-		if ($is_variable && !$product->is_type('variable')) {
+		if ($is_variable && !ProductService::isVariable($product)) {
 			$product_variable = new \WC_Product_Variable($product->get_id());
 			$product = $product_variable;
 		}
@@ -1160,7 +1157,7 @@ class ProductService extends BaseService {
 		$product = wc_get_product($product_id);
 
 		// Verifica che sia un prodotto variabile
-		if ($product && $product->is_type('variable')) {
+		if ($product && ProductService::isVariable($product)) {
 			$available_variations = $product->get_available_variations();
 
 			if (!empty($available_variations)) {
@@ -1237,5 +1234,75 @@ class ProductService extends BaseService {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Controlliamo se il prodotto è un prodotto con varianti
+	 *
+	 * @param \WC_Product $product The product to check.
+	 *
+	 * @return bool True if the product have a variant, false otherwise.
+	 *
+	 * @since 1.0.0
+	 */
+	public static function isVariable($product) {
+		// Controlliamo se il prodotto è un prodotto con varianti
+		if ($product instanceof \WC_Product) {
+			// Il metodo is_type è stato introdotto in WooCommerce 3.0.0
+			if (method_exists($product, 'is_type')) {
+				return $product->is_type('variable');
+			} else {
+				// Controlliamo se il prodotto è una variante
+				return $product->get_type() === 'variable';
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Controlliamo se il prodotto è una variante
+	 *
+	 * @param \WC_Product $product The product to check.
+	 *
+	 * @return bool True if the product is a variant, false otherwise.
+	 *
+	 * @since 1.0.0
+	 */
+	public static function isVariation($product) {
+		// Controlliamo se il prodotto è una variante
+		if ($product instanceof \WC_Product) {
+			if (method_exists($product, 'is_type')) {
+				return $product->is_type('variation');
+			} else {
+				// Controlliamo se il prodotto è una variante
+				return $product->get_type() === 'variation';
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Clears the exported history from the database.
+	 *
+	 * This function deletes all records from the 'isi_api_export_product' table
+	 * where the 'is_exported' column is set to 1. This effectively clears the
+	 * exported history.
+	 *
+	 * @return int|false The number of rows deleted, or false on failure.
+	 *
+	 * @since 1.0.0
+	 */
+	public function clearExportedHistory() {
+		global $wpdb;
+
+		$result = $wpdb->delete(
+			$wpdb->prefix . 'isi_api_export_product',
+			[
+				'is_exported' => 1,
+			],
+			['%d'],
+		);
+
+		return $result;
 	}
 }

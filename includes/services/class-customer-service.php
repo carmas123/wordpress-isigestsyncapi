@@ -257,9 +257,11 @@ class CustomerService extends BaseService {
 		// Leggiamo i clienti da esportare
 		$items = $wpdb->get_results($this->getToReceiveQuery(), ARRAY_A);
 
-		foreach ($items as $item_id) {
+		Utilities::logDebug('Impostando clienti come esportati: ' . count($items));
+
+		foreach ($items as $item) {
 			try {
-				$this->setAsReceived($item_id);
+				$this->setAsReceived($item['id']);
 				$cnt++;
 			} catch (\Exception $e) {
 				Utilities::logError($e->getMessage());

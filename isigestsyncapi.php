@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ISIGest Sync API
  * Description: Plugin per la sincronizzazione dei prodotti tramite API
- * Version: 1.0.70
+ * Version: 1.0.95
  * Author: ISIGest S.r.l.
  * Author URI: https://www.isigest.net
  * Requires at least: 6.0
@@ -26,7 +26,7 @@ if (!defined('WPINC')) {
 }
 
 // Definizioni costanti
-define('ISIGESTSYNCAPI_VERSION', '1.0.70');
+define('ISIGESTSYNCAPI_VERSION', '1.0.95');
 define('ISIGESTSYNCAPI_PLUGIN_FILE', __FILE__);
 define('ISIGESTSYNCAPI_PLUGIN_DIR', plugin_dir_path(ISIGESTSYNCAPI_PLUGIN_FILE));
 define('ISIGESTSYNCAPI_PLUGIN_URL', plugin_dir_url(ISIGESTSYNCAPI_PLUGIN_FILE));
@@ -224,6 +224,12 @@ class Plugin {
 		// Hooks per WooCommerce
 		add_action('woocommerce_init', [$this, 'initializeWooCommerce']);
 
+		// Hooks per AJAX
+		add_action('wp_ajax_isigestsyncapi_toggle_export_status', [
+			$this,
+			'handleToggleExportStatus',
+		]);
+
 		// Aggiungiamo le Hook di Pushover
 		if (ConfigHelper::getPushoverEnabled()) {
 			PushoverHooks::init();
@@ -312,9 +318,12 @@ class Plugin {
 	 * @return void
 	 */
 	public function enqueueAdminAssets($hook) {
+		// Carica gli assets nelle pagine del plugin e nella pagina ordini
 		if (
 			$hook !== 'toplevel_page_isigestsyncapi-settings' &&
-			$hook !== 'isigest-sync_page_isigestsyncapi-settings'
+			$hook !== 'isigest-sync_page_isigestsyncapi-settings' &&
+			$hook !== 'edit.php' && // Pagina ordini classica
+			$hook !== 'woocommerce_page_wc-orders' // Pagina ordini HPOS
 		) {
 			return;
 		}
@@ -413,6 +422,8 @@ class Plugin {
 				),
 			);
 
+			// Aggiungiamo l'ID dell'ordine come attributo data per JavaScript
+			echo '<span class="isigest-export-status" data-order-id="' . esc_attr($order_id) . '">';
 			if ($is_exported === true) {
 				echo '<span class="dashicons dashicons-yes-alt" style="color: #2ea2cc;" title="' .
 					esc_attr__('Ordine esportato', 'isigestsyncapi') .
@@ -473,6 +484,79 @@ class Plugin {
 			$query->set('meta_key', '_isigestsyncapi_is_exported');
 			$query->set('orderby', 'meta_value');
 		}
+	}
+
+	/**
+	 * Gestisce il toggle dello stato di esportazione di un ordine
+	 */
+	public function handleToggleExportStatus() {
+		// Verifica il nonce
+		if (!check_ajax_referer('isigestsyncapi-settings', 'nonce', false)) {
+			wp_send_json_error(['message' => 'Nonce non valido']);
+			return;
+		}
+
+		// Verifica i permessi
+		if (!current_user_can('manage_woocommerce')) {
+			wp_send_json_error(['message' => 'Permessi insufficienti']);
+			return;
+		}
+
+		// Ottieni l'ID dell'ordine
+		$order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+		if (!$order_id) {
+			wp_send_json_error(['message' => 'ID ordine non valido']);
+			return;
+		}
+
+		global $wpdb;
+
+		// Verifica se l'ordine esiste
+		$current_status = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT is_exported 
+				FROM {$wpdb->prefix}isi_api_export_order 
+				WHERE order_id = %d",
+				$order_id,
+			),
+		);
+
+		if ($current_status === null) {
+			// Se non esiste, inserisci un nuovo record
+			$result = $wpdb->insert(
+				"{$wpdb->prefix}isi_api_export_order",
+				[
+					'order_id' => $order_id,
+					'is_exported' => 1,
+					'exported_at' => current_time('mysql'),
+				],
+				['%d', '%d', '%s'],
+			);
+
+			$new_status = true;
+		} else {
+			// Se esiste, inverti lo stato
+			$new_status = !$current_status;
+			$result = $wpdb->update(
+				"{$wpdb->prefix}isi_api_export_order",
+				[
+					'is_exported' => $new_status ? 1 : 0,
+					'exported_at' => current_time('mysql'),
+				],
+				['order_id' => $order_id],
+				['%d', '%s'],
+				['%d'],
+			);
+		}
+
+		if ($result === false) {
+			wp_send_json_error([
+				'message' => 'Si è verificato un problema durante l\'aggiornamento del database',
+			]);
+			return;
+		}
+
+		wp_send_json_success(['is_exported' => $new_status]);
 	}
 }
 

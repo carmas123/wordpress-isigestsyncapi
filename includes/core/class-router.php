@@ -41,7 +41,7 @@ class Router {
 		try {
 			$response = $this->routeRequest($method, $request_path);
 			$this->sendJsonData($response);
-		} catch (\Exception $e) {
+		} catch (\Throwable $e) {
 			$this->sendJsonException($e);
 		}
 		exit();
@@ -251,6 +251,11 @@ class Router {
 		// Gestione eccezioni personalizzate
 		if ($error instanceof ISIGestSyncApiException && method_exists($error, 'getDetail')) {
 			$result->detail = $error->getDetail();
+		}
+
+		// Gestione Avvisi
+		if ($error instanceof ISIGestSyncApiWarningException) {
+			$result->is_warning = true;
 		}
 
 		$response = json_encode($result, JSON_UNESCAPED_UNICODE);

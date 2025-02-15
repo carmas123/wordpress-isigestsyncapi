@@ -14,7 +14,6 @@ use ISIGestSyncAPI\Core\ISIGestSyncApiWarningException;
 use ISIGestSyncAPI\Core\Utilities;
 use ISIGestSyncAPI\Core\ConfigHelper;
 use ISIGestSyncAPI\Core\ISIGestSyncApiException;
-use ISIGestSyncAPI\Core\ISIGestSyncApiBadRequestException;
 
 /**
  * Classe StockService per la gestione dello stock dei prodotti.
@@ -58,9 +57,18 @@ class StockService extends BaseService {
 
 		// Verifichiamo se cercare per reference o per sku
 		if ($reference_mode && empty($data['reference'])) {
-			throw new ISIGestSyncApiBadRequestException('Reference prodotto non specificato');
+			throw new ISIGestSyncApiWarningException(
+				'Reference prodotto non specificato: ' . $data['sku'],
+			);
 		} elseif ($reference_mode) {
-			$product_id = $this->findProductByReference($data['reference']);
+			$product_ref = $this->findProductByReference($data['reference']);
+			if ($product_ref && is_array($product_ref) && isset($product_ref['post_id'])) {
+				if ($product_ref['variation_id']) {
+					$product_id = $product_ref['variation_id'];
+				} else {
+					$product_id = $product_ref['post_id'];
+				}
+			}
 		} else {
 			$product_id =
 				$this->findProductBySku($data['sku']) ??
@@ -68,7 +76,13 @@ class StockService extends BaseService {
 		}
 
 		if (!$product_id) {
-			throw new ISIGestSyncApiWarningException('Prodotto non trovato');
+			if ($reference_mode) {
+				throw new ISIGestSyncApiWarningException(
+					'Prodotto non trovato: ' . $data['reference'],
+				);
+			} else {
+				throw new ISIGestSyncApiWarningException('Prodotto non trovato');
+			}
 		}
 
 		// Aggiorniamo i dati per la gestione della seconda unità di misura
@@ -78,7 +92,7 @@ class StockService extends BaseService {
 		$variation_id = 0;
 		$p = wc_get_product($product_id);
 		// Verifichiamo se il prodotto è una variante
-		$is_variation = $p->is_type('variation');
+		$is_variation = ProductService::isVariation($p);
 
 		if ($is_variation) {
 			// Impostiamo gli ID
@@ -105,7 +119,7 @@ class StockService extends BaseService {
 		);
 
 		// Verifichiamo lo stato del prodotto
-		if (!$reference_mode && $this->config->get('products_disable_outofstock')) {
+		if (!$reference_mode) {
 			$this->status_handler->checkAndUpdateProductStatus(
 				$is_variation ? $variation_id : $product_id,
 				$is_variation,
@@ -136,7 +150,7 @@ class StockService extends BaseService {
 		$variation_id = 0;
 		$p = wc_get_product($product_id);
 		// Verifichiamo se il prodotto è una variante
-		$is_variation = $p->is_type('variation');
+		$is_variation = ProductService::isVariation($p);
 
 		if ($is_variation) {
 			// Impostiamo gli ID
@@ -164,6 +178,12 @@ class StockService extends BaseService {
 
 		// Se è una variante, aggiorniamo quella
 		if ($variation_id) {
+			Utilities::logDebug(
+				'Updating Stock for Variation ID: ' .
+					$variation_id .
+					' with quantity: ' .
+					$new_quantity,
+			);
 			$variation = wc_get_product($variation_id);
 			if ($variation) {
 				$variation->set_manage_stock(true);
@@ -177,12 +197,20 @@ class StockService extends BaseService {
 				self::updateParentProductStock($product_id);
 			}
 		} else {
+			Utilities::logDebug(
+				'Updating Stock for Product ID: ' .
+					$product_id .
+					' with quantity: ' .
+					$new_quantity,
+			);
 			$product = wc_get_product($product_id);
-			if ($product && !$product->is_type('variable')) {
+			if ($product && !ProductService::isVariable($product)) {
 				$product->set_manage_stock(true);
 				$product->set_stock_quantity($new_quantity);
 				$product->set_stock_status($new_quantity > 0 ? 'instock' : 'outofstock');
 				$product->save();
+			} else {
+				Utilities::logDebug('Product is a variable');
 			}
 		}
 
@@ -219,7 +247,7 @@ class StockService extends BaseService {
 	 */
 	private static function updateParentProductStock($product_id) {
 		$product = wc_get_product($product_id);
-		if (!$product || !$product->is_type('variable')) {
+		if (!$product || !ProductService::isVariable($product)) {
 			return;
 		}
 

@@ -190,3 +190,20 @@
 .isi-settings-button-container button {
 	margin: 0;
 }
+
+.isigest-export-status {
+	cursor: pointer;
+}
+
+.isigest-export-status .spinning {
+	animation: isigest-spin 2s linear infinite;
+}
+
+@keyframes isigest-spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}

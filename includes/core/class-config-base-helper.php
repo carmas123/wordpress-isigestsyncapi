@@ -47,6 +47,7 @@ abstract class ConfigBaseHelper {
 		'products_price_withtax',
 		'products_round_net_price',
 		'products_reference_mode',
+		'products_passive_mode',
 		'products_reference_hidden',
 		'products_brand_hidden',
 		'products_featured_hidden',
@@ -197,6 +198,7 @@ abstract class ConfigBaseHelper {
 			'products_price_withtax' => true,
 			'products_round_net_price' => false,
 			'products_reference_mode' => false,
+			'products_passive_mode' => false,
 
 			// Taglie&Colori
 
