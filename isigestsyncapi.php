@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ISIGest Sync API
  * Description: Plugin per la sincronizzazione dei prodotti tramite API
- * Version: 1.0.95
+ * Version: 1.0.96
  * Author: ISIGest S.r.l.
  * Author URI: https://www.isigest.net
  * Requires at least: 6.0
@@ -26,7 +26,7 @@ if (!defined('WPINC')) {
 }
 
 // Definizioni costanti
-define('ISIGESTSYNCAPI_VERSION', '1.0.95');
+define('ISIGESTSYNCAPI_VERSION', '1.0.96');
 define('ISIGESTSYNCAPI_PLUGIN_FILE', __FILE__);
 define('ISIGESTSYNCAPI_PLUGIN_DIR', plugin_dir_path(ISIGESTSYNCAPI_PLUGIN_FILE));
 define('ISIGESTSYNCAPI_PLUGIN_URL', plugin_dir_url(ISIGESTSYNCAPI_PLUGIN_FILE));
