@@ -436,12 +436,15 @@ class ProductService extends BaseService {
 			throw new ISIGestSyncApiNotFoundException("Prodotto non trovato ($product_id)");
 		}
 
+		// La data di Export è la data di modifica del prodotto
+		$exported_at = $product->get_date_modified();
+
 		$result = $wpdb->replace(
 			$wpdb->prefix . 'isi_api_export_product',
 			[
 				'post_id' => $product_id,
 				'is_exported' => 1,
-				'exported_at' => current_time('mysql'),
+				'exported_at' => $exported_at ? $exported_at->format('Y-m-d H:i:s') : null,
 			],
 			['%d', '%d', '%s'],
 		);
@@ -471,7 +474,7 @@ class ProductService extends BaseService {
                 LEFT JOIN {$wpdb->prefix}isi_api_export_product e ON p.ID = e.post_id
                 WHERE p.post_type = 'product'
                 AND p.post_status = 'publish'
-                AND (e.post_id IS NULL OR e.is_exported = 0 OR p.post_modified <> e.exported_at)
+                AND (e.post_id IS NULL OR e.is_exported = 0 OR p.post_date > e.exported_at)
             ");
 
 		$result = [];
