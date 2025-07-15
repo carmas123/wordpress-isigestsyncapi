@@ -44,7 +44,7 @@ class ProductStatusHandler extends BaseService {
 			return false;
 		}
 
-		$should_be_active = !$force_disable && self::shouldProductBeActive($product);
+		$should_be_active = !$force_disable && self::shouldProductBeActive($product, $is_variant);
 		$current_status = $product->get_status();
 		$current_catalog_visibility = $product->get_catalog_visibility();
 		$new_status = $should_be_active ? 'publish' : ($is_variant ? 'private' : 'draft');
@@ -176,9 +176,10 @@ class ProductStatusHandler extends BaseService {
 	 * Determina se un prodotto dovrebbe essere attivo.
 	 *
 	 * @param \WC_Product $product       Il prodotto.
+	 * @param boolean $is_variant       Indica se è una variante.
 	 * @return boolean
 	 */
-	public static function shouldProductBeActive($product) {
+	public static function shouldProductBeActive($product, $is_variant) {
 		if (ProductService::isVariable($product)) {
 			// La disattivazione viene eseguita solo per le varianti o prodotti semplici
 			return true;
@@ -216,6 +217,14 @@ class ProductStatusHandler extends BaseService {
 					sprintf('Prodotto %d disattivato: stock esaurito', $product->get_id()),
 					'info',
 				);
+				return false;
+			}
+		}
+
+		// Quando è una variante se è senza prezzo, la disattiviamo sempre
+		if ($is_variant) {
+			$price = $product->get_regular_price();
+			if (empty($price) || $price <= 0) {
 				return false;
 			}
 		}

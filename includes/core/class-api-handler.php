@@ -62,7 +62,7 @@ class ApiHandler {
 	 *
 	 * @var boolean
 	 */
-	private $reference_mode;
+	protected $reference_mode;
 
 	/**
 	 * Inizializza l'handler API.
@@ -201,6 +201,22 @@ class ApiHandler {
 	}
 
 	/**
+	 * Recupera i dati di un ordine.
+	 *
+	 * @param int $orderId L'ID dell'ordine.
+	 * @return array
+	 * @throws ISIGestSyncApiException Se si verifica un errore durante il recupero.
+	 */
+	public function getOrderToReceive($orderId) {
+		try {
+			$order = $this->order_service->get($orderId);
+			return $order;
+		} catch (\Exception $e) {
+			throw new ISIGestSyncApiException($e->getMessage());
+		}
+	}
+
+	/**
 	 * Conferma la ricezione di un ordine.
 	 *
 	 * @param array $request I dati della richiesta.
@@ -287,12 +303,14 @@ class ApiHandler {
 	/**
 	 * Recupera i prodotti da ricevere.
 	 *
+	 * @param integer $product_id L'ID del prodotto.
+	 * @param integer $variation_id L'ID della variante.
 	 * @return array
 	 * @throws ISIGestSyncApiException Se si verifica un errore durante il recupero.
 	 */
-	public function getProductImages($post_id, $variation_id) {
+	public function getProductImages($product_id, $variation_id = null) {
 		try {
-			return $this->image_service->getProductImages($post_id, $variation_id);
+			return $this->image_service->getProductImages($product_id, $variation_id);
 		} catch (\Exception $e) {
 			throw new ISIGestSyncApiException($e->getMessage());
 		}

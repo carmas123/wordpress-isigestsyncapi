@@ -36,7 +36,7 @@ class SettingsHelper {
 		?>
         <div class="wrap">
             <h1><?php echo esc_html($fs['legend']['title']); ?></h1>
-            
+
             <?php $this->renderTabs($active_tab); ?>
 
             <form method="post" action="options.php">
@@ -81,7 +81,7 @@ class SettingsHelper {
 		// Raggruppa i campi per sezione all'interno del tab attivo
 		$sections = [];
 		foreach ($this->form_structure['input'] as $field) {
-			if ($field['tab'] === $active_tab) {
+			if ($field && $field['tab'] === $active_tab) {
 				$section = $field['section'] ?? 'default';
 				$sections[$section][] = $field;
 			}
@@ -152,7 +152,7 @@ class SettingsHelper {
                     <input type="hidden" name="isigestsyncapi_settings[<?php echo esc_attr(
                     	$field['name'],
                     ); ?>]" value="0">
-                    <input 
+                    <input
                         type="checkbox"
                         name="isigestsyncapi_settings[<?php echo esc_attr($field['name']); ?>]"
                         value="1"
@@ -182,7 +182,7 @@ class SettingsHelper {
                 ); ?>"><?php echo esc_html($field['label']); ?></label>
             </th>
             <td>
-                <select 
+                <select
                     name="isigestsyncapi_settings[<?php echo esc_attr($field['name']); ?>]"
                     id="<?php echo esc_attr($field['name']); ?>"
                     <?php echo $field['readonly'] ? 'readonly' : ''; ?>
@@ -225,11 +225,11 @@ class SettingsHelper {
                         <?php echo $field['readonly'] ? 'readonly' : ''; ?>
                         <?php echo $field['disabled'] ? 'disabled' : ''; ?>
                     ><?php echo esc_textarea($field['value']); ?></textarea>
-                    
+
                     <?php if (!empty($field['buttons'])): ?>
                         <div class="isi-settings-button-container" style="margin-top: 10px;">
                             <?php foreach ($field['buttons'] as $button): ?>
-                                <button type="button" 
+                                <button type="button"
                                     class="<?php echo esc_attr($button['class']); ?>"
                                     <?php if (isset($button['data-action'])): ?>
                                         data-action="<?php echo esc_attr(
@@ -307,14 +307,14 @@ class SettingsHelper {
                     ><?php echo esc_textarea(
                     	Utilities::ifBlank($field['value'], "<?php\n"),
                     ); ?></textarea>
-    
+
                     <?php if (!empty($field['description'])): ?>
                         <p class="description"><?php echo esc_html($field['description']); ?></p>
                     <?php endif; ?>
                 </div>
             </td>
         </tr>
-    
+
         <style>
             .CodeMirror {
                 height: 500px;

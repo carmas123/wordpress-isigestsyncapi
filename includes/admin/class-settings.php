@@ -11,6 +11,7 @@
 namespace ISIGestSyncAPI\Admin;
 
 use ISIGestSyncAPI\Core\ConfigHelper;
+use ISIGestSyncAPI\Core\Utilities;
 use ISIGestSyncAPI\Services\CustomerService;
 use ISIGestSyncAPI\Services\OrderService;
 use ISIGestSyncAPI\Services\ProductService;
@@ -426,20 +427,24 @@ class Settings {
 						'Campo "Codice Produttore"',
 					),
 
-					// Marca
-					$this->buildField(
-						'products_brand_key',
-						'Chiave',
-						'products',
-						'Campo "Marca"',
-						'Indica il campo slug per le marche (Default: pa_marca)',
-					),
-					$this->buildCheckbox(
-						'products_brand_hidden',
-						'Nascosto',
-						'products',
-						'Campo "Marca"',
-					),
+					// Marca (Dalla versione 9.6 di WooCommerce le marche vengono gestite come Tassonomie simili alle categorie)
+					!Utilities::wcBrandsTableIsEnabled()
+						? $this->buildField(
+							'products_brand_key',
+							'Chiave',
+							'products',
+							'Campo "Marca"',
+							'Indica il campo slug per le marche (Default: pa_marca)',
+						)
+						: null,
+					Utilities::wcBrandsTableIsEnabled()
+						? $this->buildCheckbox(
+							'products_brand_hidden',
+							'Nascosto',
+							'products',
+							'Campo "Marca"',
+						)
+						: null,
 
 					// In Evidenza
 					$this->buildField(
@@ -552,6 +557,22 @@ class Settings {
 					// Ordini
 					// Stato Ordini da Esportare
 					...$this->buildOrderStatusCheckboxes(),
+
+					// Gestione Export Ordini con bonifico o assegno
+					$this->buildCheckbox(
+						'orders_export_with_payment_bacs',
+						'Bonifico',
+						'orders',
+						'Esportazione',
+						'Se non selezionato, gli ordini con lo stato di pagamento "Bonifico" non saranno esportati quando lo stato dell\'ordine è "In Attesa di Pagamento"',
+					),
+					$this->buildCheckbox(
+						'orders_export_with_payment_cheque',
+						'Assegno',
+						'orders',
+						'Esportazione',
+						'Se non selezionato, gli ordini con lo stato di pagamento "Assegno" non saranno esportati quando lo stato dell\'ordine è "In Attesa di Pagamento"',
+					),
 
 					$this->buildHTML('orders_setallasexported_button', '', 'orders', 'Strumenti', [
 						$this->helper,

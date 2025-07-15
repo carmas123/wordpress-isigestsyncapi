@@ -34,7 +34,7 @@ class OrderService extends BaseService {
 	 * @return array|null
 	 * @throws ISIGestSyncApiNotFoundException Se l'ordine non viene trovato.
 	 */
-	public function get($order_id) {
+	public function get($order_id, $set_as_received = true) {
 		try {
 			$order = wc_get_order($order_id);
 			if (!$order) {
@@ -86,8 +86,8 @@ class OrderService extends BaseService {
 				'message' => $this->getOrderMessages($order),
 				'customer' => $this->getCustomerData($order),
 				'address_invoice' => self::billingAddressToData($order),
-				'address_shipping' => self::shippingAddressToData($order),
-				'items' => $this->getOrderItems($order, $sweezy_plugin_enabled),
+				'address_delivery' => self::shippingAddressToData($order),
+				'items' => $items,
 			];
 
 			// Aggiunge ID marketplace se necessario
@@ -99,7 +99,9 @@ class OrderService extends BaseService {
 
 			return $data;
 		} catch (\Exception $e) {
-			self::setAsReceived($order_id, $e);
+			if ($set_as_received) {
+				self::setAsReceived($order_id, $e);
+			}
 			return null;
 		}
 	}
@@ -172,8 +174,8 @@ class OrderService extends BaseService {
 				LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON o.`id` = e.`order_id`
 				WHERE o.status IN ({$status_list})
 				AND (
-					e.order_id IS NULL 
-					OR e.is_exported = 0 
+					e.order_id IS NULL
+					OR e.is_exported = 0
 				)";
 		} else {
 			// Selezioniamo gli ordini dai Post (Vecchia Gestione)
@@ -182,8 +184,8 @@ class OrderService extends BaseService {
 				LEFT JOIN {$wpdb->prefix}isi_api_export_order e ON o.`ID` = e.`order_id`
 				WHERE o.post_status IN ({$status_list})
 				AND (
-					e.order_id IS NULL 
-					OR e.is_exported = 0 
+					e.order_id IS NULL
+					OR e.is_exported = 0
 				)";
 		}
 	}
@@ -196,8 +198,9 @@ class OrderService extends BaseService {
 	public function getToReceive() {
 		global $wpdb;
 
-		$export_bankwire = (bool) get_option('isigest_export_bankwire', false);
-		$export_check = (bool) get_option('isigest_export_check', false);
+		$config = ConfigHelper::getInstance();
+		$export_bankwire = (bool) $config->get('orders_export_with_payment_bacs', false);
+		$export_check = (bool) $config->get('orders_export_with_payment_cheque', false);
 
 		// Leggiamo gli ordini da esportare
 		$orders = $wpdb->get_results($this->getToReceiveQuery(), ARRAY_A);
@@ -206,6 +209,7 @@ class OrderService extends BaseService {
 		foreach ($orders as $order) {
 			try {
 				$wc_order = wc_get_order($order['id']);
+				Utilities::logDebug('Checking for export order ID: ' . $order['id']);
 				if (
 					$wc_order &&
 					$this->shouldExportOrder($wc_order, $export_bankwire, $export_check)
@@ -214,6 +218,8 @@ class OrderService extends BaseService {
 					if (is_array($o) && !empty($o)) {
 						$result[] = $o;
 					}
+				} else {
+					Utilities::logDebug('Order ID: ' . $order['id'] . ' not exportable');
 				}
 			} catch (\Exception $e) {
 				Utilities::logError($e->getMessage());
@@ -277,7 +283,7 @@ class OrderService extends BaseService {
 			// Nel caso in cui c'è la gestione Sweezy, leggiamo i meta data dell'item
 			if ($order_is_paid_with_sweezy) {
 				// Leggiamo il prezzo unitario Sweezy, perchè quando un ordine è pagato con Sweezy
-				// allora nell'ordine viene originale di WooCommerce c'è 0 perchè il prezzo viene gestito
+				// nell'ordine originale di WooCommerce c'è 0 perchè il prezzo viene gestito
 				// tramite un metacampo
 				$price = (float) $item->get_meta('Prezzo Unitario Sweezy');
 
@@ -289,11 +295,12 @@ class OrderService extends BaseService {
 				$total_wt = round($price_wt * $quantity, 2);
 			}
 
+			$code_key = $this->products_reference_mode ? 'isigest_reference' : 'isigest_code';
 			$items[] = [
 				'post_id' => $post_id,
 				'variant_id' => $variant_id,
 				'product_name' => $item->get_name(),
-				'isigest_code' => $product->get_sku(),
+				$code_key => $product->get_sku(),
 				'product' => [
 					'weight' => (float) $product->get_weight(),
 					'name' => $product->get_name(),
@@ -334,14 +341,21 @@ class OrderService extends BaseService {
 			return false;
 		}
 
+		// Leggiamo lo stato dell'ordine
+		$order_status = $order->get_status();
+
+		// Leggiamo il metodo di pagamento per verificare se è possibile esportare l'ordine
 		$payment_method = $order->get_payment_method();
 
-		if ($payment_method === 'bacs' && !$export_bankwire) {
-			return false;
-		}
+		// Controlliamo lo stato dell'ordine per escludere gli ordini in attesa di pagamento
+		if ($order_status === 'pending') {
+			if ($payment_method === 'bacs' && !$export_bankwire) {
+				return false;
+			}
 
-		if ($payment_method === 'cheque' && !$export_check) {
-			return false;
+			if ($payment_method === 'cheque' && !$export_check) {
+				return false;
+			}
 		}
 
 		return true;

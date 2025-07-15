@@ -98,9 +98,8 @@ class Router {
 			case 'GET product-image':
 				$post_id = isset($_GET['post_id']) ? (int) $_GET['post_id'] : null;
 				$variation_id = isset($_GET['variant_id']) ? $_GET['variant_id'] : null;
-				$id_image = isset($_GET['id_image']) ? $_GET['id_image'] : null;
 
-				return $this->api_handler->getProductImages($post_id, $variation_id);
+				return $this->api_handler->getProductImages((int) $post_id, (int) $variation_id);
 
 			case 'DELETE product-image':
 				$id_image = isset($_GET['id_image']) ? $_GET['id_image'] : null;
@@ -124,6 +123,11 @@ class Router {
 				return $this->api_handler->handleImage($body);
 
 			default:
+				if ($method === 'GET' && preg_match('/^order\\/(\\d+)$/', $path, $matches)) {
+					$orderId = (int) $matches[1];
+					return $this->api_handler->getOrderToReceive($orderId);
+				}
+
 				$this->sendJsonNotFoundRequest();
 				exit();
 		}

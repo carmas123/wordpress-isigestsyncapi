@@ -219,6 +219,10 @@ abstract class ConfigBaseHelper {
 			// Clienti
 			'customers_send_push_on_signedup' => false,
 
+			// Ordini
+			'orders_export_with_payment_bacs' => false,
+			'orders_export_with_payment_cheque' => false,
+
 			// Pushover
 			'pushover_enabled' => false,
 		];

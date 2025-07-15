@@ -371,6 +371,19 @@ class Utilities {
 	}
 
 	/**
+	 * Verifica se è attiva la tabella delle marche di WooCommerce.
+	 *
+	 * Questo metodo controlla se l'opzione 'wc_feature_woocommerce_brands_enabled'
+	 * è impostata su 'yes' nelle impostazioni di WordPress.
+	 *
+	 * @return bool Restituisce true se la tabella delle marche è abilitata, false altrimenti.
+	 */
+	public static function wcBrandsTableIsEnabled(): bool {
+		return get_option('wc_feature_woocommerce_brands_enabled') === 'yes' ||
+			taxonomy_exists('product_brand');
+	}
+
+	/**
 	 * Arrotonda un numero a un numero specifico di decimali.
 	 *
 	 * @param float   $number Il numero da arrotondare.

@@ -95,8 +95,11 @@ class ImageService extends BaseService {
 				'size' => filesize($temp_file),
 			];
 
+			// Ottieni l'ID del prodotto/variante
+			$post_id = $variation_id ?: $product_id;
+
 			// Carica il file nella libreria media
-			$attachment_id = $this->uploadToMediaLibrary($file_array, $product_id);
+			$attachment_id = $this->uploadToMediaLibrary($file_array, $post_id);
 
 			// Gestisci l'associazione dell'immagine
 			if ($variation_id) {
@@ -136,11 +139,11 @@ class ImageService extends BaseService {
 	 * Carica un file nella libreria media di WordPress.
 	 *
 	 * @param array   $file_array L'array con i dati del file.
-	 * @param integer $product_id L'ID del prodotto.
+	 * @param integer $post_id L'ID del prodotto/variante.
 	 * @return integer L'ID dell'attachment creato.
 	 * @throws ISIGestSyncApiException Se si verifica un errore durante l'upload.
 	 */
-	private function uploadToMediaLibrary($file_array, $product_id) {
+	private function uploadToMediaLibrary($file_array, $post_id) {
 		// Carica le dipendenze solo quando servono
 		$this->loadMediaDependencies();
 
@@ -150,7 +153,7 @@ class ImageService extends BaseService {
 			throw new ISIGestSyncApiException('Tipo di file non supportato');
 		}
 
-		$attachment_id = media_handle_sideload($file_array, $product_id);
+		$attachment_id = media_handle_sideload($file_array, $post_id);
 
 		if (is_wp_error($attachment_id)) {
 			throw new ISIGestSyncApiException(
@@ -171,7 +174,12 @@ class ImageService extends BaseService {
 	private function setVariationImage($variation_id, $attachment_id) {
 		$variation = wc_get_product($variation_id);
 		if ($variation) {
+			// Imposta l'immagine della variante
 			$variation->set_image_id($attachment_id);
+
+			// Assicuriamoci che l'immagine sia associata correttamente alla variante
+			update_post_meta($variation_id, '_thumbnail_id', $attachment_id);
+
 			$variation->save();
 		}
 	}
@@ -193,7 +201,7 @@ class ImageService extends BaseService {
 		if ($is_main) {
 			$product->set_image_id($attachment_id);
 		} else {
-			$gallery_ids = $product->get_gallery_image_ids();
+			$gallery_ids = $product->get_gallery_image_ids('edit');
 
 			// Rimuove l'immagine dalla galleria se era già presente
 			$gallery_ids = array_diff($gallery_ids, [$attachment_id]);
@@ -304,11 +312,11 @@ class ImageService extends BaseService {
 	 * Ottiene le immagini di un prodotto o di una sua variante.
 	 *
 	 * @param integer $product_id ID del prodotto.
-	 * @param integer $variation_id ID della variante (opzionale).
+	 * @param integer|null $variation_id ID della variante (opzionale).
 	 * @return array Array di oggetti immagine.
 	 * @throws ISIGestSyncApiNotFoundException Se il prodotto non viene trovato.
 	 */
-	public function getProductImages($product_id, $variation_id = 0) {
+	public function getProductImages($product_id, $variation_id = null) {
 		$product = wc_get_product($product_id);
 		if (!$product) {
 			throw new ISIGestSyncApiNotFoundException('Prodotto non trovato');
@@ -324,7 +332,7 @@ class ImageService extends BaseService {
 			}
 
 			// Immagine in evidenza della variante
-			$variation_image_id = $variation->get_image_id();
+			$variation_image_id = $variation->get_image_id('edit');
 			if ($variation_image_id) {
 				$images[] = [
 					'id' => (int) $variation_image_id,
@@ -332,7 +340,7 @@ class ImageService extends BaseService {
 			}
 		} else {
 			// Immagine in evidenza del prodotto
-			$product_image_id = $product->get_image_id();
+			$product_image_id = $product->get_image_id('edit');
 			if ($product_image_id) {
 				$images[] = [
 					'id' => (int) $product_image_id,
@@ -340,7 +348,7 @@ class ImageService extends BaseService {
 			}
 
 			// Immagini della galleria
-			$gallery_image_ids = $product->get_gallery_image_ids();
+			$gallery_image_ids = $product->get_gallery_image_ids('edit');
 			foreach ($gallery_image_ids as $gallery_image_id) {
 				$images[] = [
 					'id' => (int) $gallery_image_id,

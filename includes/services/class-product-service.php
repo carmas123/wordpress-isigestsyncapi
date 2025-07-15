@@ -12,6 +12,7 @@ namespace ISIGestSyncAPI\Services;
 
 use ISIGestSyncAPI\Core\ConfigHelper;
 use ISIGestSyncAPI\Core\CustomFunctionsManager;
+use ISIGestSyncAPI\Core\ISIGestSyncApiWarningException;
 use ISIGestSyncAPI\Core\ProductAttribute;
 use ISIGestSyncAPI\Services\BaseService;
 use ISIGestSyncAPI\Core\Utilities;
@@ -79,6 +80,13 @@ class ProductService extends BaseService {
 	public function createOrUpdate($data) {
 		global $wpdb;
 
+		$find_sku = $this->products_reference_mode ? $data['reference'] : $data['sku'];
+		if ($this->products_reference_mode && empty($find_sku)) {
+			throw new ISIGestSyncApiWarningException(
+				'Codice Produttore non specificato o non valido',
+			);
+		}
+
 		$isigest = $data['isigest'] ?? null;
 		if (!$isigest) {
 			throw new ISIGestSyncApiBadRequestException('Dati ISIGest non trovati');
@@ -88,9 +96,32 @@ class ProductService extends BaseService {
 		$is_tc = (bool) $isigest['is_tc'];
 
 		// Cerchiamo il prodotto per SKU
-		$product_id =
-			$this->findProductBySku($data['sku']) ?? $this->findProductByWCSku($data['sku']);
+		$product_id = null;
+		$find_sku1 = $data['sku'];
+		Utilities::logDebug('Search with SKU: ' . $find_sku1);
+		$product_id = $this->findProductBySku($find_sku1);
+		if ($product_id) {
+			Utilities::logDebug('Found product ID: ' . $product_id . ' for SKU: ' . $find_sku1);
+		} else {
+			Utilities::logDebug('No product found for SKU: ' . $find_sku1);
+
+			// Cerchiamo nei Codici di WooCommerce
+			Utilities::logDebug('Search with WooCommerce SKU: ' . $find_sku1);
+			$product_id = $this->findProductByWCSku($find_sku);
+			if ($product_id) {
+				Utilities::logDebug(
+					'Found product ID: ' . $product_id . ' for WooCommerce SKU: ' . $find_sku,
+				);
+			} else {
+				Utilities::logDebug('No product found for WooCommerce SKU: ' . $find_sku);
+			}
+		}
+
 		$product = $product_id ? wc_get_product($product_id) : null;
+		if ($product_id && !$product) {
+			Utilities::logWarn('Found invalid product with ID: ' . $product_id);
+		}
+
 		$is_new = !$product;
 
 		$use_attributes =
@@ -102,12 +133,20 @@ class ProductService extends BaseService {
 		// Se il prodotto non esiste, lo creiamo
 		if ($is_new) {
 			$product = $use_attributes ? new \WC_Product_Variable() : new \WC_Product_Simple();
+			Utilities::logDebug('Creating new product');
+		} else {
+			Utilities::logDebug('Updating existing product with ID: ' . $product->get_id());
 		}
 
 		// Aggiorniamo i dati base del prodotto
 		$this->updateBasicProductData($product, $data);
 
 		// Aggiorniamo le Varianti e gli Attributi
+		if ($is_new) {
+			Utilities::logDebug('Creating product variants');
+		} else {
+			Utilities::logDebug('Updating product variants');
+		}
 		$this->handleVariantsAndAttributes($product, $data);
 
 		// Gestione varianti
@@ -200,7 +239,7 @@ class ProductService extends BaseService {
 
 	private function getCanImportName() {
 		$type = (int) $this->config->get('products_name');
-		return $type !== 2;
+		return $type !== 3;
 	}
 
 	/**
@@ -211,8 +250,9 @@ class ProductService extends BaseService {
 	 * @return void
 	 */
 	private function updateBasicProductData($product, $data) {
+		$find_sku = $this->products_reference_mode ? $data['reference'] : $data['sku'];
 		// Dati base
-		$product->set_sku($data['sku']);
+		$product->set_sku($find_sku);
 
 		// Nome
 		if ($this->getCanImportName() || empty($product->get_name())) {
@@ -260,10 +300,8 @@ class ProductService extends BaseService {
 		$product->save();
 
 		// Categorie
-		if (
-			!$this->config->get('products_dont_sync_categories', false) &&
-			isset($data['categories'])
-		) {
+		$skip_categories = $this->config->get('products_dont_sync_categories', false);
+		if (!$skip_categories && isset($data['categories'])) {
 			$this->updateProductCategories($product, $data['categories']);
 		}
 	}
@@ -317,7 +355,7 @@ class ProductService extends BaseService {
 		if ($rp > $p) {
 			return $rp;
 		}
-		return $p;
+		return (float) $p;
 	}
 
 	/**
@@ -369,6 +407,19 @@ class ProductService extends BaseService {
 				max($prices['sale_price']),
 			);
 		}
+	}
+
+	/**
+	 * Elimina un prodotto dall'History.
+	 *
+	 * @param string $sku Lo SKU del prodotto.
+	 * @return void
+	 */
+	private function deleteHistoryProduct($sku) {
+		global $wpdb;
+		Utilities::logDbResult(
+			$wpdb->delete($wpdb->prefix . 'isi_api_product', ['sku' => $sku], ['%s']),
+		);
 	}
 
 	/**
@@ -469,7 +520,7 @@ class ProductService extends BaseService {
 		global $wpdb;
 
 		$products = $wpdb->get_results("
-                SELECT DISTINCT p.ID 
+                SELECT DISTINCT p.ID
                 FROM {$wpdb->posts} p
                 LEFT JOIN {$wpdb->prefix}isi_api_export_product e ON p.ID = e.post_id
                 WHERE p.post_type = 'product'
@@ -605,6 +656,11 @@ class ProductService extends BaseService {
 	 * @return void
 	 */
 	private function updateProductCategories($product, $categories) {
+		$skip_categories = $this->config->get('products_dont_sync_categories', false);
+		if ($skip_categories) {
+			return;
+		}
+
 		$category_ids = [];
 
 		foreach ($categories as $category_path) {
@@ -961,7 +1017,12 @@ class ProductService extends BaseService {
 		// Aggiungiamo altri Attributi
 
 		// Marca (Brand)
-		$this->handleMarca($attributes, $data);
+		// Verifichiamo se la tabella delle marche è abilitata, altrimenti la aggiungiamo come un attributo
+		if (!Utilities::wcBrandsTableIsEnabled()) {
+			$this->handleMarca($attributes, $data);
+		} else {
+			$this->handleMarcaAsTaxonomy($product->get_id(), $data);
+		}
 
 		// Codice Produttore
 		$this->handleReference($attributes, $data);
@@ -987,6 +1048,7 @@ class ProductService extends BaseService {
 
 		// Creiamo o aggiorniamo le variazioni
 		if ($is_variable) {
+			Utilities::logDebug('Updating product variations');
 			$this->updateProductVariations($product, $variations, $isigest);
 		}
 	}
@@ -1004,6 +1066,43 @@ class ProductService extends BaseService {
 				ConfigHelper::getBrandMetaKey(),
 				$this->config->get('products_brand_hidden', false),
 			);
+		}
+	}
+
+	/**
+	 * Gestione della marca come tassonomia
+	 *
+	 * @param integer $product_id L'ID del prodotto WooCommerce da aggiornare.
+	 * @param array      $data      I dati del prodotto.
+	 *
+	 * @return void
+	 */
+	private function handleMarcaAsTaxonomy($product_id, $data) {
+		if (
+			!$this->config->get('products_dont_sync_brand', false) &&
+			isset($data['brand']) &&
+			isset($data['brand']['name']) &&
+			!empty($data['brand']['name'])
+		) {
+			$brand_name = $data['brand']['name'];
+
+			$term = get_term_by('name', $brand_name, 'product_brand');
+
+			// Creiamo la marca se non esiste
+			if (!$term) {
+				$term = wp_insert_term($brand_name, 'product_brand');
+				if (is_wp_error($term)) {
+					Utilities::logError(
+						"Errore nella creazione della marca '$brand_name': " .
+							$term->get_error_message(),
+					);
+				}
+			}
+
+			if ($term) {
+				// Assegniamo la marca al prodotto
+				wp_set_object_terms($product_id, $term->term_id, 'product_brand');
+			}
 		}
 	}
 
@@ -1053,8 +1152,35 @@ class ProductService extends BaseService {
 
 		foreach ($variations as $variant) {
 			$sku = $variant['sku'];
+			$find_sku = $this->products_reference_mode ? $variant['reference'] : $sku;
 
-			$variation_id = $this->findProductBySku($sku) ?? $this->findVariationBySku($sku);
+			Utilities::logDebug('Searching for product variation with SKU: ' . $sku);
+			$variation_id = $this->findProductBySku($sku);
+
+			if ($variation_id) {
+				Utilities::logDebug(
+					'Found product variation with SKU: ' . $sku . ' ID: ' . $variation_id,
+				);
+
+				// Abbiamo trovato una prodotto tramite SKU ora dobbiamo controllare che sia una variante
+				if ($this->isArchivedAsVariant($sku)) {
+					Utilities::logDebug('Product is archived as variant');
+					if (!$this->existsVariation($variation_id)) {
+						Utilities::logWarn('Variation does not exist, removing from History');
+						// Dobbiamo eliminare dall'History questo SKU perchè è stato archiviato male
+						$this->deleteHistoryProduct($sku);
+						$variation_id = null;
+					}
+				} else {
+					Utilities::logDebug('Product is not archived as variant');
+				}
+			}
+
+			if (!$variation_id) {
+				Utilities::logDebug('No variation found with SKU: ' . $sku);
+				Utilities::logDebug('Searching for variation with SKU: ' . $find_sku);
+				$variation_id = $this->findVariationBySku($find_sku);
+			}
 
 			$variation = null;
 			if ($variation_id) {
@@ -1063,6 +1189,7 @@ class ProductService extends BaseService {
 
 			if (!$variation) {
 				// Creiamo una nuova variante
+				Utilities::logDebug('Creating a new variation for SKU: ' . $sku);
 				$variation = new \WC_Product_Variation();
 			}
 
@@ -1101,13 +1228,23 @@ class ProductService extends BaseService {
 	}
 
 	private function updateVariationData($variation, $data, $is_tc) {
+		// Gestione Codice SKU in Reference Mode
+		$find_sku = $this->products_reference_mode ? $data['reference'] : $data['sku'];
+
 		// Imposta SKU
-		$variation->set_sku($data['sku']);
+		$variation->set_sku($find_sku);
 
 		// Imposta prezzi
 		if (!$this->config->get('products_dont_sync_prices')) {
-			$variation->set_regular_price($this->extractRegularPrice($data));
-			$variation->set_sale_price($this->extractPrice($data));
+			$regular_price = $this->extractRegularPrice($data);
+			$sale_price = $this->extractPrice($data);
+
+			// Impostiamo i prezzi
+			$variation->set_regular_price($regular_price);
+			$variation->set_sale_price($sale_price);
+
+			// Disattiviamo le varianti senza prezzo
+			$variation->set_status($regular_price == 0 ? 'private' : 'publish');
 		}
 
 		// Imposta stock
