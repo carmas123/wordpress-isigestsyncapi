@@ -3,8 +3,8 @@ Contributors: carmas123
 Tags: woocommerce, api, sync, products
 Requires at least: 5.0
 Tested up to: 6.4
-Stable tag: 1.0.127
-Version: 1.0.127
+Stable tag: 1.0.129
+Version: 1.0.129
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html

@@ -368,6 +368,11 @@ class OrderService extends BaseService {
 	 * @return array
 	 */
 	public static function billingAddressToData($order) {
+		$vat_number_key = ConfigHelper::getOrdersVatNumberMetaKey();
+		$dni_key = ConfigHelper::getOrdersDniMetaKey();
+		$sdi_key = ConfigHelper::getOrdersCodiceSdiMetaKey();
+		$pec_key = ConfigHelper::getOrdersPecMetaKey();
+
 		// Recuperiamo i dati dell'indirizzo di fatturazione
 		$address = [
 			'firstname' => $order->get_billing_first_name(),
@@ -383,6 +388,43 @@ class OrderService extends BaseService {
 			'state' => $order->get_billing_state(),
 			'country' => $order->get_billing_country(),
 		];
+
+		// Leggiamo i dati fiscali
+		if ($vat_number_key) {
+			$address['vat_number'] = $order->get_meta($vat_number_key);
+		}
+		if ($dni_key) {
+			$address['dni'] = $order->get_meta($dni_key);
+		}
+		$pec_found = false;
+		if ($sdi_key) {
+			$v = $order->get_meta($sdi_key) ?? '';
+			if ($v) {
+				// Verifichiamo se il codice SdI è valido
+				if (strlen($v) === 7) {
+					$address['codice_sdi'] = $v;
+				}
+				// Verifichiamo se il codice SdI è un indirizzo email
+				elseif (filter_var($v, FILTER_VALIDATE_EMAIL)) {
+					$pec_found = true;
+					$address['pec'] = $v;
+				}
+			}
+		}
+		if ($pec_key && !$pec_found) {
+			$v = $order->get_meta($pec_key) ?? '';
+			if ($v) {
+				// Verifichiamo se è indirizzo email
+				if (filter_var($v, FILTER_VALIDATE_EMAIL)) {
+					$pec_found = true;
+					$address['pec'] = $v;
+				}
+				// Verifichiamo se è un codice SdI
+				elseif (strlen($v) === 7) {
+					$address['codice_sdi'] = $v;
+				}
+			}
+		}
 
 		// Crea un ID numerico
 		$address['id'] = abs(crc32(implode('|', array_filter($address))));

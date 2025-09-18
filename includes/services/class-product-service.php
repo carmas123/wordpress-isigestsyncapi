@@ -779,7 +779,7 @@ class ProductService extends BaseService {
 			// Rimuoviamo gli spazi iniziali e finali
 			$category_name = trim($category_name);
 			$category_slug = wc_sanitize_taxonomy_name($category_name);
-			$category_name = htmlentities($category_name);
+			// $category_name = htmlentities($category_name);
 
 			// Azzeriamo il Category Id (Importante altrimenti potrebbe rimanere quello del padre)
 			$category_id = 0;

@@ -2,9 +2,9 @@
 # This file is distributed under the same license as the ISIGest Sync API package.
 msgid ""
 msgstr ""
-"Project-Id-Version: ISIGest Sync API 1.0.127\n"
+"Project-Id-Version: ISIGest Sync API 1.0.129\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/isigestsyncapi\n"
-"POT-Creation-Date: 2025-07-15 08:24:38+00:00\n"
+"POT-Creation-Date: 2025-09-17 16:06:37+00:00\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -116,63 +116,63 @@ msgstr ""
 msgid "Pushover"
 msgstr ""
 
-#: includes/admin/class-settings.php:592
+#: includes/admin/class-settings.php:629
 msgid "Log"
 msgstr ""
 
-#: includes/admin/class-settings.php:595
+#: includes/admin/class-settings.php:632
 msgid "Log delle operazioni recenti"
 msgstr ""
 
-#: includes/admin/class-settings.php:602
+#: includes/admin/class-settings.php:639
 msgid "Azzera log"
 msgstr ""
 
-#: includes/admin/class-settings.php:608
+#: includes/admin/class-settings.php:645
 msgid "Aggiorna"
 msgstr ""
 
-#: includes/admin/class-settings.php:649
+#: includes/admin/class-settings.php:686
 msgid "Salva"
 msgstr ""
 
-#: includes/admin/class-settings.php:688
+#: includes/admin/class-settings.php:725
 msgid "Nessun log disponibile"
 msgstr ""
 
-#: includes/admin/class-settings.php:693 includes/admin/class-settings.php:735
+#: includes/admin/class-settings.php:730 includes/admin/class-settings.php:772
 msgid "Il file di log è vuoto"
 msgstr ""
 
-#: includes/admin/class-settings.php:717 includes/admin/class-settings.php:851
+#: includes/admin/class-settings.php:754 includes/admin/class-settings.php:888
 msgid "Non autorizzato"
 msgstr ""
 
-#: includes/admin/class-settings.php:734
+#: includes/admin/class-settings.php:771
 msgid "Log azzerato con successo"
 msgstr ""
 
-#: includes/admin/class-settings.php:739
+#: includes/admin/class-settings.php:776
 msgid "Impossibile azzerare il log"
 msgstr ""
 
-#: includes/admin/class-settings.php:782
+#: includes/admin/class-settings.php:819
 msgid "Comando non valido"
 msgstr ""
 
-#: includes/admin/class-settings.php:787
+#: includes/admin/class-settings.php:824
 msgid "Comando eseguito con successo"
 msgstr ""
 
-#: includes/admin/class-settings.php:796
+#: includes/admin/class-settings.php:833
 msgid "You do not have sufficient permissions to access this page."
 msgstr ""
 
-#: includes/admin/class-settings.php:871
+#: includes/admin/class-settings.php:908
 msgid "Impostazioni salvate con successo"
 msgstr ""
 
-#: includes/admin/class-settings.php:876
+#: includes/admin/class-settings.php:913
 msgid "Nessuna impostazione da salvare"
 msgstr ""
 

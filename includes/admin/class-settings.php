@@ -546,6 +546,7 @@ class Settings {
 						'Notifiche',
 						'Invia una notifica quando un nuovo cliente si registra',
 					),
+
 					$this->buildHTML(
 						'customers_setallasexported_button',
 						'',
@@ -572,6 +573,42 @@ class Settings {
 						'orders',
 						'Esportazione',
 						'Se non selezionato, gli ordini con lo stato di pagamento "Assegno" non saranno esportati quando lo stato dell\'ordine è "In Attesa di Pagamento"',
+					),
+
+					// Campo Partita IVA
+					$this->buildField(
+						'orders_vat_number_key',
+						'Chiave Partita IVA',
+						'orders',
+						'Campo "Partita IVA"',
+						'Indica il meta-campo per la partita IVA del cliente (se vuoto non verrà esportata)',
+					),
+
+					// Campo Codice SdI
+					$this->buildField(
+						'orders_codice_sdi_key',
+						'Chiave Codice SdI',
+						'orders',
+						'Campo "Codice SdI"',
+						'Indica il meta-campo per il codice SdI del cliente (se vuoto non verrà esportato)',
+					),
+
+					// Campo PEC
+					$this->buildField(
+						'orders_pec_key',
+						'Chiave PEC',
+						'orders',
+						'Campo "PEC"',
+						'Indica il meta-campo per la PEC del cliente (se vuoto non verrà esportata)',
+					),
+
+					// Campo Codice Fiscale
+					$this->buildField(
+						'orders_dni_key',
+						'Chiave Codice Fiscale',
+						'orders',
+						'Campo "Codice Fiscale"',
+						'Indica il meta-campo per il codice fiscale del cliente (se vuoto non verrà esportato)',
 					),
 
 					$this->buildHTML('orders_setallasexported_button', '', 'orders', 'Strumenti', [

@@ -134,6 +134,50 @@ class ConfigHelper extends ConfigBaseHelper {
 	}
 
 	/**
+	 * Ritorna la chiave meta per la gestione della partita IVA in fase di export dei clienti
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	public static function getOrdersVatNumberMetaKey(): string {
+		return Utilities::ifBlank(ConfigHelper::getInstance()->get('orders_vat_number_key'), '');
+	}
+
+	/**
+	 * Ritorna la chiave meta per la gestione del codice fiscale in fase di export dei clienti
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	public static function getOrdersDniMetaKey(): string {
+		return Utilities::ifBlank(ConfigHelper::getInstance()->get('orders_dni_key'), '');
+	}
+
+	/**
+	 * Ritorna la chiave meta per la gestione del codice SdI in fase di export dei clienti
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	public static function getOrdersCodiceSdiMetaKey(): string {
+		return Utilities::ifBlank(ConfigHelper::getInstance()->get('orders_codice_sdi_key'), '');
+	}
+
+	/**
+	 * Ritorna la chiave meta per la gestione del PEC in fase di export dei clienti
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	public static function getOrdersPecMetaKey(): string {
+		return Utilities::ifBlank(ConfigHelper::getInstance()->get('orders_pec_key'), '');
+	}
+
+	/**
 	 * Ritorna la chiave meta per la gestione del colore
 	 *
 	 * @since 1.0.0
