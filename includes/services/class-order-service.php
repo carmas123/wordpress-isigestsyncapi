@@ -215,7 +215,7 @@ class OrderService extends BaseService {
 					$this->shouldExportOrder($wc_order, $export_bankwire, $export_check)
 				) {
 					$o = $this->get($wc_order->get_id());
-					if (is_array($o) && !empty($o)) {
+					if (\is_array($o) && !empty($o)) {
 						$result[] = $o;
 					}
 				} else {

@@ -15,6 +15,7 @@ use ISIGestSyncAPI\Services\StockService;
 use ISIGestSyncAPI\Services\ImageService;
 use ISIGestSyncAPI\Services\OrderService;
 use ISIGestSyncAPI\Services\CustomerService;
+use ISIGestSyncAPI\Services\CategoryService;
 
 /**
  * Classe ApiHandler per la gestione delle operazioni API.
@@ -28,6 +29,13 @@ class ApiHandler {
 	 * @var ProductService
 	 */
 	private $product_service;
+
+	/**
+	 * Service per la gestione delle categorie.
+	 *
+	 * @var CategoryService
+	 */
+	private $category_service;
 
 	/**
 	 * Service per la gestione dello stock.
@@ -73,6 +81,7 @@ class ApiHandler {
 		$this->image_service = new ImageService();
 		$this->order_service = new OrderService();
 		$this->customer_service = new CustomerService();
+		$this->category_service = new CategoryService();
 		$this->reference_mode = ConfigHelper::getInstance()->get('products_reference_mode', false);
 	}
 
@@ -92,7 +101,7 @@ class ApiHandler {
 			// Verifica parametro "isigest" con le informazioni
 			if (
 				!isset($body['isigest']) ||
-				!is_array($body['isigest']) ||
+				!\is_array($body['isigest']) ||
 				empty($body['isigest'])
 			) {
 				throw new ISIGestSyncApiBadRequestException(
@@ -145,6 +154,20 @@ class ApiHandler {
 	// PINGO - PONG
 	public function handlePing() {
 		return ['pong' => 'pong'];
+	}
+
+	/**
+	 * Recupera l'alberatura delle categorie
+	 *
+	 * @return array
+	 * @throws ISIGestSyncApiException Se si verifica un errore durante il recupero.
+	 */
+	public function getCategories() {
+		try {
+			return $this->category_service->getCategories();
+		} catch (\Exception $e) {
+			throw new ISIGestSyncApiException($e->getMessage());
+		}
 	}
 
 	/**
@@ -281,7 +304,7 @@ class ApiHandler {
 	 */
 	public function updateStock($body) {
 		try {
-			if (!isset($body) || !is_array($body) || empty($body)) {
+			if (!isset($body) || !\is_array($body) || empty($body)) {
 				throw new ISIGestSyncApiBadRequestException('Body non valido');
 			}
 
@@ -356,7 +379,11 @@ class ApiHandler {
 				);
 			}
 
+			// Impostiamo lo SKU
+			$sku = (string) $request['sku'];
+
 			return $this->image_service->handleImageUpload(
+				$sku,
 				(int) $request['post_id'],
 				$request['variant_id'],
 				$request['filename'],

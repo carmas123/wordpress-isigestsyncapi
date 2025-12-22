@@ -55,7 +55,7 @@ class CustomerService extends BaseService {
 			$addresses = array_filter(
 				[self::billingAddressToData($customer), self::shippingAddressToData($customer)],
 				function ($value) {
-					return $value !== null && (!is_array($value) || !empty($value));
+					return $value !== null && (!\is_array($value) || !empty($value));
 				},
 			);
 
@@ -126,7 +126,7 @@ class CustomerService extends BaseService {
 		foreach ($customers as $customer) {
 			try {
 				$customer_data = $this->get($customer['id']);
-				if (is_array($customer_data) && !empty($customer_data)) {
+				if (\is_array($customer_data) && !empty($customer_data)) {
 					$result[] = $customer_data;
 				}
 			} catch (\Exception $e) {

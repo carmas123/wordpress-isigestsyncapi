@@ -20,6 +20,8 @@ use ISIGestSyncAPI\Core\ISIGestSyncApiException;
 use ISIGestSyncAPI\Core\ISIGestSyncApiBadRequestException;
 use ISIGestSyncAPI\Core\ISIGestSyncApiNotFoundException;
 
+use Automattic\WooCommerce\Internal\ProductAttributesLookup\LookupDataStore;
+
 /**
  * Classe ProductService per la gestione dei prodotti.
  *
@@ -127,8 +129,8 @@ class ProductService extends BaseService {
 		$use_attributes =
 			$is_tc ||
 			(isset($data['attributes']) &&
-				is_array($data['attributes']) &&
-				count($data['attributes']) > 0);
+				\is_array($data['attributes']) &&
+				\count($data['attributes']) > 0);
 
 		// Se il prodotto non esiste, lo creiamo
 		if ($is_new) {
@@ -175,11 +177,21 @@ class ProductService extends BaseService {
 
 		// Verifichiamo lo stato del prodotto
 		$force_disable = isset($data['active']) && !$data['active'];
-		$this->status_handler->checkAndUpdateProductStatus(
-			$product->get_id(),
-			false,
-			$force_disable,
-		);
+		if (
+			$this->status_handler->checkAndUpdateProductStatus(
+				$product->get_id(),
+				false,
+				$force_disable,
+			)
+		) {
+			Utilities::logDebug(
+				'Aggiornamento attributo di default: ' .
+					$product->get_id() .
+					' dopo la modifica dello stato',
+			);
+			// Quando viene aggiornato lo stato del prodotto dobbiamo ricalcolare l'attributo default
+			self::updateDefaultVariant($product->get_id());
+		}
 
 		// Ritorniamo i dati del prodotto
 		return $this->get($product->get_id());
@@ -687,15 +699,22 @@ class ProductService extends BaseService {
 		$attributes = [];
 
 		if ($is_tc) {
-			$attributes[ConfigHelper::getSizeAndColorSizeKey()] = [
+			$t_key = ConfigHelper::getSizeAndColorSizeKey();
+			$t_label = 'Taglia';
+			$attributes[$t_key] = [
 				'variant' => true,
-				'label' => 'Taglia',
+				'label' => $t_label,
 				'value' => $variant['size_name'],
+				'archive' => true,
 			];
-			$attributes[ConfigHelper::getSizeAndColorColorKey()] = [
+
+			$c_key = ConfigHelper::getSizeAndColorColorKey();
+			$c_label = 'Colore';
+			$attributes[$c_key] = [
 				'variant' => true,
-				'label' => 'Colore',
+				'label' => $c_label,
 				'value' => $variant['color_name'],
+				'archive' => true,
 			];
 		} else {
 			// Attributi standard
@@ -943,7 +962,15 @@ class ProductService extends BaseService {
 			}
 
 			if (!empty($term_ids)) {
-				wp_set_object_terms($product->get_id(), $term_ids, $name);
+				$set_terms_result = wp_set_object_terms($product->get_id(), $term_ids, $name);
+
+				if (is_wp_error($set_terms_result)) {
+					Utilities::logError(
+						"Errore nella creazione del termine '$value': " .
+							$set_terms_result->get_error_message(),
+					);
+					return null;
+				}
 
 				// Formattiamo gli attributi secondo la documentazione
 				$attribute = new \WC_Product_Attribute();
@@ -1060,7 +1087,7 @@ class ProductService extends BaseService {
 			isset($data['brand']['name']) &&
 			!empty($data['brand']['name'])
 		) {
-			$attributes[] = isigestsyncapi_prepare_feature_attribute(
+			$attributes[] = isigestsyncapi_prepare_attribute(
 				$data['brand']['name'],
 				'Marca',
 				ConfigHelper::getBrandMetaKey(),
@@ -1112,7 +1139,7 @@ class ProductService extends BaseService {
 			isset($data['reference']) &&
 			!empty($data['reference'])
 		) {
-			$attributes[] = isigestsyncapi_prepare_feature_attribute(
+			$attributes[] = isigestsyncapi_prepare_attribute(
 				$data['reference'],
 				'Codice Produttore',
 				ConfigHelper::getReferenceMetaKey(),
@@ -1137,7 +1164,7 @@ class ProductService extends BaseService {
 
 	private function handleInEvidenza(&$attributes, $data) {
 		if (!$this->config->get('products_dont_sync_featured_flag', false)) {
-			$attributes[] = isigestsyncapi_prepare_feature_attribute(
+			$attributes[] = isigestsyncapi_prepare_attribute(
 				$data['isigest']['featured'] ? 'Si' : 'No',
 				'In Evidenza',
 				ConfigHelper::getInEvidenzaMetaKey(),
@@ -1166,7 +1193,13 @@ class ProductService extends BaseService {
 				if ($this->isArchivedAsVariant($sku)) {
 					Utilities::logDebug('Product is archived as variant');
 					if (!$this->existsVariation($variation_id)) {
-						Utilities::logWarn('Variation does not exist, removing from History');
+						Utilities::logWarn(
+							'Variation does not exist, removing from History: ' .
+								$sku .
+								' (ID: ' .
+								$variation_id .
+								')',
+						);
 						// Dobbiamo eliminare dall'History questo SKU perchè è stato archiviato male
 						$this->deleteHistoryProduct($sku);
 						$variation_id = null;
@@ -1189,7 +1222,7 @@ class ProductService extends BaseService {
 
 			if (!$variation) {
 				// Creiamo una nuova variante
-				Utilities::logDebug('Creating a new variation for SKU: ' . $sku);
+				Utilities::logDebug("Creating a new variation for SKU: $sku");
 				$variation = new \WC_Product_Variation();
 			}
 
@@ -1200,6 +1233,9 @@ class ProductService extends BaseService {
 			$this->updateVariationData($variation, $variant, (bool) $isigest['is_tc']);
 
 			$variation->save();
+
+			// Imposta stock
+			StockService::updateProductStock($variation->get_id(), $variant);
 
 			Utilities::log("Creata/Aggiornata variante: SKU {$sku}");
 
@@ -1224,7 +1260,11 @@ class ProductService extends BaseService {
 		}
 
 		// Aggiorniamo la variante di default
-		$this->updateDefaultVariant($product->get_id());
+		self::updateDefaultVariant($product->get_id());
+
+		// Aggiorniamo il datastore
+		$lookupDataStore = new LookupDataStore();
+		$lookupDataStore->create_data_for_product($product->get_id());
 	}
 
 	private function updateVariationData($variation, $data, $is_tc) {
@@ -1247,9 +1287,6 @@ class ProductService extends BaseService {
 			$variation->set_status($regular_price == 0 ? 'private' : 'publish');
 		}
 
-		// Imposta stock
-		StockService::updateProductStock($variation->get_id(), $data);
-
 		// Codice a barre
 		$this->handleBarcode($variation->get_id(), $data);
 
@@ -1257,10 +1294,20 @@ class ProductService extends BaseService {
 		$attributes = [];
 		if ($is_tc) {
 			if (!empty($data['size_name'])) {
-				$attributes[ConfigHelper::getSizeAndColorSizeKey()] = $data['size_name'];
+				$size_key = ConfigHelper::getSizeAndColorSizeKey();
+				// Recuperiamo lo slug effettivo del termine per evitare problemi con caratteri speciali
+				$term = get_term_by('name', $data['size_name'], $size_key);
+				$attributes['attribute_' . $size_key] = $term
+					? $term->slug
+					: sanitize_title($data['size_name']);
 			}
 			if (!empty($data['color_name'])) {
-				$attributes[ConfigHelper::getSizeAndColorColorKey()] = $data['color_name'];
+				$color_key = ConfigHelper::getSizeAndColorColorKey();
+				// Recuperiamo lo slug effettivo del termine per evitare problemi con caratteri speciali
+				$term = get_term_by('name', $data['color_name'], $color_key);
+				$attributes['attribute_' . $color_key] = $term
+					? $term->slug
+					: sanitize_title($data['color_name']);
 			}
 		} else {
 			// Attributi standard
@@ -1271,7 +1318,11 @@ class ProductService extends BaseService {
 				if (!empty($data[$type_key]) && !empty($data[$value_key])) {
 					$attr_label = $data[$type_key];
 					$attr_name = wc_attribute_taxonomy_name($attr_label);
-					$attributes[$attr_name] = wc_sanitize_taxonomy_name($data[$value_key]);
+					// Recuperiamo lo slug effettivo del termine per evitare problemi con caratteri speciali
+					$term = get_term_by('name', $data[$value_key], $attr_name);
+					$attributes['attribute_' . $attr_name] = $term
+						? $term->slug
+						: sanitize_title($data[$value_key]);
 				}
 			}
 		}
@@ -1293,7 +1344,7 @@ class ProductService extends BaseService {
 		return null;
 	}
 
-	function updateDefaultVariant($product_id) {
+	public static function updateDefaultVariant($product_id) {
 		$product = wc_get_product($product_id);
 
 		// Verifica che sia un prodotto variabile
@@ -1337,38 +1388,41 @@ class ProductService extends BaseService {
 					update_post_meta($product_id, '_default_attributes', $default_attributes);
 
 					// Gestione immagine
-					$variation_obj = wc_get_product($lowest_price_variation['variation_id']);
-					if ($variation_obj) {
-						$image_id = $variation_obj->get_image_id();
+					$variation_id = (int) $lowest_price_variation['variation_id'];
+					if ($variation_id) {
+						$variation_obj = wc_get_product($variation_id);
+						if ($variation_obj) {
+							$image_id = $variation_obj->get_image_id();
 
-						// Se la variante ha un'immagine, impostala come principale
-						if ($image_id) {
-							// Salva l'immagine principale corrente come meta se non è già una variante
-							$current_image_id = get_post_thumbnail_id($product_id);
-							if ($current_image_id && $current_image_id != $image_id) {
-								update_post_meta(
-									$product_id,
-									'_original_thumbnail_id',
-									$current_image_id,
-								);
-							}
+							// Se la variante ha un'immagine, impostala come principale
+							if ($image_id) {
+								// Salva l'immagine principale corrente come meta se non è già una variante
+								$current_image_id = get_post_thumbnail_id($product_id);
+								if ($current_image_id && $current_image_id != $image_id) {
+									update_post_meta(
+										$product_id,
+										'_original_thumbnail_id',
+										$current_image_id,
+									);
+								}
 
-							// Imposta la nuova immagine principale
-							set_post_thumbnail($product_id, $image_id);
-						} else {
-							// Cerca la prima variante con un'immagine
-							foreach ($available_variations as $variation) {
-								$var_obj = wc_get_product($variation['variation_id']);
-								if ($var_obj && $var_obj->get_image_id()) {
-									$image_id = $var_obj->get_image_id();
-									set_post_thumbnail($product_id, $image_id);
-									break;
+								// Imposta la nuova immagine principale
+								set_post_thumbnail($product_id, $image_id);
+							} else {
+								// Cerca la prima variante con un'immagine
+								foreach ($available_variations as $variation) {
+									$var_obj = wc_get_product($variation['variation_id']);
+									if ($var_obj && $var_obj->get_image_id()) {
+										$image_id = $var_obj->get_image_id();
+										set_post_thumbnail($product_id, $image_id);
+										break;
+									}
 								}
 							}
 						}
 					}
 
-					return $lowest_price_variation['variation_id'];
+					return $variation_id;
 				}
 			}
 		}
@@ -1442,6 +1496,19 @@ class ProductService extends BaseService {
 			],
 			['%d'],
 		);
+
+		return $result;
+	}
+
+	/**
+	 * Elimina tutte le associazioni tra i prodotti e le varianti con ISIGest.
+	 *
+	 * @return bool|int
+	 */
+	public function deleteProductsAssociation() {
+		global $wpdb;
+		$result = $wpdb->query("DELETE FROM {$wpdb->prefix}isi_api_product");
+		Utilities::logWarn("Eliminati tutte le associazioni dei prodotti con ISIGest: $result");
 
 		return $result;
 	}

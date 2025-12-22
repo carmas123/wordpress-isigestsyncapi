@@ -649,6 +649,14 @@ class Settings {
 						],
 					],
 
+					$this->buildHTML(
+						'danger_zone_delete_products_association_button',
+						'',
+						'advanced',
+						'Azioni irriversibili',
+						[$this->helper, 'renderAdvancedDangerZoneDeleteProductsAssociation'],
+					),
+
 					// Pushover
 					$this->buildCheckbox(
 						'pushover_enabled',
@@ -813,6 +821,10 @@ class Settings {
 			case 'products_clearexportedhistory':
 				$x = new ProductService();
 				$x->clearExportedHistory();
+				break;
+			case 'advanced_danger_zone_delete_products_association':
+				$x = new ProductService();
+				$x->deleteProductsAssociation();
 				break;
 			default:
 				wp_send_json_error([

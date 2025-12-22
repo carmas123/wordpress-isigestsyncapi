@@ -10,6 +10,7 @@
 
 namespace ISIGestSyncAPI\Services;
 
+use ISIGestSyncAPI\Core\ConfigHelper;
 use ISIGestSyncAPI\Core\ISIGestSyncApiNotFoundException;
 use ISIGestSyncAPI\Core\Utilities;
 use ISIGestSyncAPI\Core\ISIGestSyncApiException;
@@ -29,12 +30,23 @@ class ImageService extends BaseService {
 	private $status_handler;
 
 	/**
+	 * @var bool $use_woo_variation_gallery Indica se è installato il plugin Woo Variation Gallery.
+	 */
+	private $use_woo_variation_gallery = false;
+
+	/**
 	 * Costruttore.
 	 */
 	public function __construct() {
 		parent::__construct();
 
 		$this->status_handler = new ProductStatusHandler();
+
+		// Verifichiamo se è installato il plugin Woo Variation Gallery.
+		$this->use_woo_variation_gallery = \in_array(
+			'woo-variation-gallery/woo-variation-gallery.php',
+			apply_filters('active_plugins', get_option('active_plugins')),
+		);
 	}
 
 	/**
@@ -51,6 +63,7 @@ class ImageService extends BaseService {
 	/**
 	 * Gestisce l'upload di un'immagine per un prodotto o una sua variante.
 	 *
+	 * @param string $sku Lo SKU del prodotto/variante.
 	 * @param integer $product_id ID del prodotto.
 	 * @param integer $variation_id ID della variante (opzionale).
 	 * @param string $filename Nome del file.
@@ -61,6 +74,7 @@ class ImageService extends BaseService {
 	 * @throws ISIGestSyncApiBadRequestException Contanuto dei dati non valido.
 	 */
 	public function handleImageUpload(
+		$sku,
 		$product_id,
 		$variation_id,
 		$filename,
@@ -68,6 +82,14 @@ class ImageService extends BaseService {
 		$is_main
 	) {
 		try {
+			// Immagine non principale di una variante??
+			$is_not_main_variant = $variation_id && !$is_main;
+
+			// Quando è un'immagine della variante e non è main allora la aggiungiamo solo alla galleria del prodotto
+			if ($is_not_main_variant && !$this->use_woo_variation_gallery) {
+				return ['id' => 0];
+			}
+
 			// Decodifica il contenuto base64
 			$image_data = base64_decode($attachment);
 			if (!$image_data) {
@@ -99,13 +121,42 @@ class ImageService extends BaseService {
 			$post_id = $variation_id ?: $product_id;
 
 			// Carica il file nella libreria media
-			$attachment_id = $this->uploadToMediaLibrary($file_array, $post_id);
+			$attachment_id = $this->uploadToMediaLibrary($sku, $file_array, $post_id);
 
 			// Gestisci l'associazione dell'immagine
-			if ($variation_id) {
+			if ($variation_id && !$is_not_main_variant) {
 				$this->setVariationImage($variation_id, $attachment_id);
+				// Aggiorniamo l'attributo di default in modo da aggiornare anche l'immagine di copertina del prodotto
+				ProductService::updateDefaultVariant($product_id);
 			} else {
-				$this->setProductImage($product_id, $attachment_id, $is_main);
+				if ($variation_id) {
+					// Aggiungiamo l'immagine alla galleria della variante
+					$current_gallery_images = get_post_meta(
+						$variation_id,
+						'woo_variation_gallery_images',
+						true,
+					);
+					if (!empty($current_gallery_images)) {
+						$gallery_image_ids = array_merge($current_gallery_images, [$attachment_id]);
+					} else {
+						$gallery_image_ids = [$attachment_id];
+					}
+
+					// Verifichiamo che le immagini esistano ancora
+					$gallery_image_ids = array_filter($gallery_image_ids, function ($id) {
+						return wp_attachment_is_image($id);
+					});
+					$gallery_image_ids = array_values($gallery_image_ids);
+
+					update_post_meta(
+						$variation_id,
+						'woo_variation_gallery_images',
+						$gallery_image_ids,
+					);
+				} else {
+					// Aggiungiamo l'immagine al prodotto
+					$this->setProductImage($product_id, $attachment_id, $is_main);
+				}
 			}
 
 			// Pulisci il file temporaneo
@@ -138,12 +189,13 @@ class ImageService extends BaseService {
 	/**
 	 * Carica un file nella libreria media di WordPress.
 	 *
+	 * @param string $sku Lo SKU del prodotto/variante.
 	 * @param array   $file_array L'array con i dati del file.
 	 * @param integer $post_id L'ID del prodotto/variante.
 	 * @return integer L'ID dell'attachment creato.
 	 * @throws ISIGestSyncApiException Se si verifica un errore durante l'upload.
 	 */
-	private function uploadToMediaLibrary($file_array, $post_id) {
+	private function uploadToMediaLibrary($sku, $file_array, $post_id) {
 		// Carica le dipendenze solo quando servono
 		$this->loadMediaDependencies();
 
@@ -153,12 +205,17 @@ class ImageService extends BaseService {
 			throw new ISIGestSyncApiException('Tipo di file non supportato');
 		}
 
+		// Carichiamo l'immagine nella libreria media con i dati ISIGest
 		$attachment_id = media_handle_sideload($file_array, $post_id);
 
 		if (is_wp_error($attachment_id)) {
 			throw new ISIGestSyncApiException(
 				'Errore nel caricamento dell\'immagine: ' . $attachment_id->get_error_message(),
 			);
+		} elseif ($sku) {
+			// Aggiungiamo i dati aggiuntivi all'attachment
+			update_post_meta($attachment_id, 'isigest_image', true);
+			update_post_meta($attachment_id, 'isigest_sku', $sku);
 		}
 
 		return $attachment_id;
@@ -252,24 +309,36 @@ class ImageService extends BaseService {
 	 * @return boolean
 	 */
 	public function removeImage($image_id) {
+		// Costruisci la meta_query base
+		$meta_query = [
+			'relation' => 'OR',
+			// Cerca nelle immagini in evidenza
+			[
+				'key' => '_thumbnail_id',
+				'value' => $image_id,
+				'compare' => '=',
+			],
+			// Cerca nelle gallerie prodotto
+			[
+				'key' => '_product_image_gallery',
+				'value' => $image_id,
+				'compare' => 'LIKE',
+			],
+		];
+
+		// Se è attivo Woo Variation Gallery, cerca anche nelle gallerie delle varianti
+		if ($this->use_woo_variation_gallery) {
+			$meta_query[] = [
+				'key' => 'woo_variation_gallery_images',
+				'value' => $image_id,
+				'compare' => 'LIKE',
+			];
+		}
+
 		// Trova tutti i post/prodotti che usano questa immagine
 		$posts_using_image = get_posts([
 			'post_type' => ['product', 'product_variation'],
-			'meta_query' => [
-				'relation' => 'OR',
-				// Cerca nelle immagini in evidenza
-				[
-					'key' => '_thumbnail_id',
-					'value' => $image_id,
-					'compare' => '=',
-				],
-				// Cerca nelle gallerie
-				[
-					'key' => '_product_image_gallery',
-					'value' => $image_id,
-					'compare' => 'LIKE',
-				],
-			],
+			'meta_query' => $meta_query,
 			'posts_per_page' => -1,
 			'fields' => 'ids', // Restituisce solo gli ID per ottimizzare
 		]);
@@ -285,7 +354,7 @@ class ImageService extends BaseService {
 					$removed_count++;
 				}
 
-				// Rimuovi dalla galleria
+				// Rimuovi dalla galleria prodotto
 				$gallery = get_post_meta($post_id, '_product_image_gallery', true);
 				if (!empty($gallery)) {
 					$gallery_array = explode(',', $gallery);
@@ -297,6 +366,27 @@ class ImageService extends BaseService {
 							implode(',', $gallery_array),
 						);
 						$removed_count++;
+					}
+				}
+
+				// Rimuovi dalla galleria Woo Variation Gallery (varianti)
+				if ($this->use_woo_variation_gallery) {
+					$variation_gallery = get_post_meta(
+						$post_id,
+						'woo_variation_gallery_images',
+						true,
+					);
+					if (!empty($variation_gallery) && is_array($variation_gallery)) {
+						if (in_array($image_id, $variation_gallery)) {
+							$variation_gallery = array_diff($variation_gallery, [$image_id]);
+							$variation_gallery = array_values($variation_gallery);
+							update_post_meta(
+								$post_id,
+								'woo_variation_gallery_images',
+								$variation_gallery,
+							);
+							$removed_count++;
+						}
 					}
 				}
 			}
@@ -331,12 +421,37 @@ class ImageService extends BaseService {
 				throw new ISIGestSyncApiNotFoundException('Variante non trovata');
 			}
 
-			// Immagine in evidenza della variante
-			$variation_image_id = $variation->get_image_id('edit');
-			if ($variation_image_id) {
-				$images[] = [
-					'id' => (int) $variation_image_id,
-				];
+			if ($this->use_woo_variation_gallery) {
+				// Immagini della galleria della variante
+				$variation_gallery_images = get_post_meta(
+					$variation_id,
+					'woo_variation_gallery_images',
+					true,
+				);
+				$gallery = [];
+				if (\is_array($variation_gallery_images)) {
+					foreach ($variation_gallery_images as $variation_gallery_image) {
+						$gallery[] = [
+							'id' => (int) $variation_gallery_image,
+						];
+					}
+				}
+				$variant_single_image = [];
+				$variation_image_id = $variation->get_image_id('edit');
+				if ($variation_image_id) {
+					$variant_single_image[] = [
+						'id' => (int) $variation_image_id,
+					];
+				}
+				$images = array_merge($gallery, $variant_single_image);
+			} else {
+				// Immagine in evidenza della variante (SINGOLA IMMAGINE)
+				$variation_image_id = $variation->get_image_id('edit');
+				if ($variation_image_id) {
+					$images[] = [
+						'id' => (int) $variation_image_id,
+					];
+				}
 			}
 		} else {
 			// Immagine in evidenza del prodotto

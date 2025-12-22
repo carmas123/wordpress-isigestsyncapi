@@ -10,6 +10,9 @@
 
 namespace ISIGestSyncAPI\Services;
 
+use ISIGestSyncAPI\Core\ISIGestSyncApiException;
+use stdClass;
+
 /**
  * Classe ImageService per la gestione delle immagini.
  *
@@ -133,5 +136,40 @@ class CategoryService extends BaseService {
 
 		// Pulisci la cache delle categorie
 		clean_term_cache(array_keys($categories_map), 'product_cat');
+	}
+
+	/**
+	 * Recupera l'alberatura delle categorie
+	 *
+	 * @return array
+	 * @throws ISIGestSyncApiException Se si verifica un errore durante il recupero.
+	 */
+	public function getCategories() {
+		try {
+			$categories = get_terms([
+				'taxonomy' => 'product_cat',
+				'hide_empty' => false,
+				'hierarchical' => true,
+			]);
+
+			if (is_wp_error($categories)) {
+				throw new ISIGestSyncApiException($categories->get_error_message());
+			}
+
+			// Mappiamo le categorie
+			$categories_map = [];
+			foreach ($categories as $category) {
+				$o = new stdClass();
+				$o->id = $category->term_id;
+				$o->name = $category->name;
+				$o->slug = $category->slug;
+				$o->parent = $category->parent;
+
+				$categories_map[] = $o;
+			}
+			return $categories_map;
+		} catch (\Exception $e) {
+			throw new ISIGestSyncApiException($e->getMessage());
+		}
 	}
 }

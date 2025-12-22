@@ -62,7 +62,7 @@ class StockService extends BaseService {
 			);
 		} elseif ($reference_mode) {
 			$product_ref = $this->findProductByReference($data['reference']);
-			if ($product_ref && is_array($product_ref) && isset($product_ref['post_id'])) {
+			if ($product_ref && \is_array($product_ref) && isset($product_ref['post_id'])) {
 				if ($product_ref['variation_id']) {
 					$product_id = $product_ref['variation_id'];
 				} else {
@@ -106,7 +106,7 @@ class StockService extends BaseService {
 		// Gestiamo il magazzino multiplo se abilitato
 		if ($warehouse === '@@') {
 			// L'aggiornamento di WooCommerce lo facciamo solo per i record dei saldi Totale
-			$this->updateProductOrVariantStock($product_id, $variation_id, $data);
+			self::updateProductOrVariantStock($product_id, $variation_id, $data);
 		}
 
 		// Storicizziamo lo stock
@@ -152,6 +152,14 @@ class StockService extends BaseService {
 		// Verifichiamo se il prodotto è una variante
 		$is_variation = ProductService::isVariation($p);
 
+		Utilities::logDebug(
+			'Aggiornamento stock per prodotto: ' .
+				$product_id .
+				' (Variante?: ' .
+				($is_variation ? 'Sì' : 'No') .
+				')',
+		);
+
 		if ($is_variation) {
 			// Impostiamo gli ID
 			$variation_id = $p->get_id();
@@ -179,10 +187,7 @@ class StockService extends BaseService {
 		// Se è una variante, aggiorniamo quella
 		if ($variation_id) {
 			Utilities::logDebug(
-				'Updating Stock for Variation ID: ' .
-					$variation_id .
-					' with quantity: ' .
-					$new_quantity,
+				"Updating Stock for Variation ID: $variation_id with quantity: $new_quantity",
 			);
 			$variation = wc_get_product($variation_id);
 			if ($variation) {
@@ -195,14 +200,15 @@ class StockService extends BaseService {
 
 				// Aggiorniamo il totale del prodotto padre
 				self::updateParentProductStock($product_id);
+			} else {
+				Utilities::logWarn("Variation ID: $variation_id not found");
 			}
 		} else {
 			Utilities::logDebug(
-				'Updating Stock for Product ID: ' .
-					$product_id .
-					' with quantity: ' .
-					$new_quantity,
+				"Updating Stock for Product ID: $product_id with quantity: $new_quantity, field: " .
+					ConfigHelper::getQuantityField(),
 			);
+
 			$product = wc_get_product($product_id);
 			if ($product && !ProductService::isVariable($product)) {
 				$product->set_manage_stock(true);
@@ -210,7 +216,7 @@ class StockService extends BaseService {
 				$product->set_stock_status($new_quantity > 0 ? 'instock' : 'outofstock');
 				$product->save();
 			} else {
-				Utilities::logDebug('Product is a variable');
+				Utilities::logWarn("Product ID: $product_id is a variable");
 			}
 		}
 

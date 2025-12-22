@@ -2,9 +2,9 @@
 # This file is distributed under the same license as the ISIGest Sync API package.
 msgid ""
 msgstr ""
-"Project-Id-Version: ISIGest Sync API 1.0.129\n"
+"Project-Id-Version: ISIGest Sync API 1.0.147\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/isigestsyncapi\n"
-"POT-Creation-Date: 2025-09-17 16:06:37+00:00\n"
+"POT-Creation-Date: 2025-12-22 17:34:34+00:00\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -24,7 +24,7 @@ msgstr ""
 "X-Textdomain-Support: yes\n"
 "X-Generator: grunt-wp-i18n 1.0.3\n"
 
-#: includes/admin/class-settings-helper.php:374
+#: includes/admin/class-settings-helper.php:382
 #. translators: %s: link alle impostazioni
 msgid ""
 "È necessario abilitare le Custom Order Tables di WooCommerce nelle "
@@ -132,47 +132,47 @@ msgstr ""
 msgid "Aggiorna"
 msgstr ""
 
-#: includes/admin/class-settings.php:686
+#: includes/admin/class-settings.php:694
 msgid "Salva"
 msgstr ""
 
-#: includes/admin/class-settings.php:725
+#: includes/admin/class-settings.php:733
 msgid "Nessun log disponibile"
 msgstr ""
 
-#: includes/admin/class-settings.php:730 includes/admin/class-settings.php:772
+#: includes/admin/class-settings.php:738 includes/admin/class-settings.php:780
 msgid "Il file di log è vuoto"
 msgstr ""
 
-#: includes/admin/class-settings.php:754 includes/admin/class-settings.php:888
+#: includes/admin/class-settings.php:762 includes/admin/class-settings.php:900
 msgid "Non autorizzato"
 msgstr ""
 
-#: includes/admin/class-settings.php:771
+#: includes/admin/class-settings.php:779
 msgid "Log azzerato con successo"
 msgstr ""
 
-#: includes/admin/class-settings.php:776
+#: includes/admin/class-settings.php:784
 msgid "Impossibile azzerare il log"
 msgstr ""
 
-#: includes/admin/class-settings.php:819
+#: includes/admin/class-settings.php:831
 msgid "Comando non valido"
 msgstr ""
 
-#: includes/admin/class-settings.php:824
+#: includes/admin/class-settings.php:836
 msgid "Comando eseguito con successo"
 msgstr ""
 
-#: includes/admin/class-settings.php:833
+#: includes/admin/class-settings.php:845
 msgid "You do not have sufficient permissions to access this page."
 msgstr ""
 
-#: includes/admin/class-settings.php:908
+#: includes/admin/class-settings.php:920
 msgid "Impostazioni salvate con successo"
 msgstr ""
 
-#: includes/admin/class-settings.php:913
+#: includes/admin/class-settings.php:925
 msgid "Nessuna impostazione da salvare"
 msgstr ""
 

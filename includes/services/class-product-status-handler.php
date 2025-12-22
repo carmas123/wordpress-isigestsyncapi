@@ -214,7 +214,7 @@ class ProductStatusHandler extends BaseService {
 			$stock_quantity = $product->get_stock_quantity();
 			if (is_null($stock_quantity) || $stock_quantity <= 0) {
 				Utilities::log(
-					sprintf('Prodotto %d disattivato: stock esaurito', $product->get_id()),
+					\sprintf('Prodotto %d disattivato: stock esaurito', $product->get_id()),
 					'info',
 				);
 				return false;

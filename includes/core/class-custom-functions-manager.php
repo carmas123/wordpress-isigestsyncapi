@@ -79,14 +79,14 @@ class CustomFunctionsManager {
 
 			'isigestsyncapi_func_product_attributes' => [
 				'description' =>
-					'Funzione per la gestione degli attributi campi personalizzati dei prodotti, deve ritornare un array con la chiave dell\'attributo, utilizzare la funzione "isigestsyncapi_prepare_feature_attribute($value, $label, $key, $hidden = false)" per inizializzare il risultato ',
+					'Funzione per la gestione degli attributi campi personalizzati dei prodotti, deve ritornare un array con la chiave dell\'attributo, utilizzare la funzione "isigestsyncapi_prepare_attribute($value, $label, $key, $hidden = false)" per inizializzare il risultato ',
 				'parameters' => [
 					'product' => 'Riferimento al prodotto',
 					'data' => 'Dati inviati da ISIGest',
 					'attributes' => 'Attributi del prodotto',
 				],
 				'demo' => 'function isigestsyncapi_func_product_attributes($product, $data, $attributes) {
-						$attr = isigestsyncapi_prepare_feature_attribute("Valore", "Titolo attributo", wc_attribute_taxonomy_name("mio_attributo"));
+						$attr = isigestsyncapi_prepare_attribute("Valore", "Titolo attributo", wc_attribute_taxonomy_name("mio_attributo"));
 						$attributes[] = $attr;
 						return $attributes;
 					}',

@@ -267,6 +267,10 @@ jQuery(document).ready(function ($) {
 		'click',
 		handleCommandButtonClick('products_clearexportedhistory')
 	);
+	$('#isi_advanced_danger_zone_delete_products_association_button').on(
+		'click',
+		handleCommandButtonClick('advanced_danger_zone_delete_products_association')
+	);
 
 	// Gestione click sulla cella di esportazione
 	$(document).on('click', '.isigest-export-status', function (e) {

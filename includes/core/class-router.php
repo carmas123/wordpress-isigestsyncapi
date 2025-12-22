@@ -77,6 +77,9 @@ class Router {
 			case 'GET ping':
 				return $this->api_handler->handlePing();
 
+			case 'GET categories':
+				return $this->api_handler->getCategories();
+
 			case 'GET product/receive':
 				return $this->api_handler->getProductsToReceive();
 

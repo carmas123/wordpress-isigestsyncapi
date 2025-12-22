@@ -356,7 +356,15 @@ class SettingsHelper {
 	public function renderProductsClearExportedHistory() {
 		?>
             <button type="button" class="button" id="isi_products_clear_exported_history_button">
-                <?php echo esc_html('Elimina lo storico dei prodotti'); ?>
+                <?php echo esc_html('Elimina lo storico dei prodotti esportati'); ?>
+            </button>
+        <?php
+	}
+
+	public function renderAdvancedDangerZoneDeleteProductsAssociation() {
+		?>
+            <button type="button" class="button" id="isi_advanced_danger_zone_delete_products_association_button">
+                <?php echo esc_html('Elimina la relazione tra i prodotti e ISIGest'); ?>
             </button>
         <?php
 	}
