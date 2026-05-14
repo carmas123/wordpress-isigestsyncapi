@@ -326,7 +326,11 @@ class ProductService extends BaseService {
 				$value = $body['tags'] ?? '';
 				break;
 			case 2:
-				$value = $body['description_short'] ?? '';
+				$value = html_entity_decode(
+					strip_tags($body['description_short'] ?? ''),
+					ENT_QUOTES | ENT_HTML5,
+					'UTF-8',
+				);
 				break;
 		}
 

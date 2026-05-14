@@ -180,9 +180,38 @@ class ProductStatusHandler extends BaseService {
 	 * @return boolean
 	 */
 	public static function shouldProductBeActive($product, $is_variant) {
-		if (ProductService::isVariable($product)) {
-			// La disattivazione viene eseguita solo per le varianti o prodotti semplici
-			return true;
+		$is_variable = !$is_variant && ProductService::isVariable($product);
+
+		// Quando un prodotto è varaibile (quindi ha delle varianti dobbiamo verificare lo stato di tutte le varianti)
+		if ($is_variable) {
+			$is_any_variant_active = false;
+			$variation_ids = $product->get_children();
+			foreach ($variation_ids as $variation_id) {
+				$variation = \wc_get_product($variation_id);
+				$is_any_variant_active = self::shouldProductBeActive($variation, true);
+				if ($is_any_variant_active) {
+					break;
+				}
+			}
+
+			if ($is_any_variant_active) {
+				Utilities::log(
+					sprintf(
+						'Prodotto %d attivato: almeno una variante è attiva',
+						$product->get_id(),
+					),
+					'info',
+				);
+			} else {
+				Utilities::log(
+					sprintf(
+						'Prodotto %d disattivato: nessuna variante è attiva',
+						$product->get_id(),
+					),
+					'info',
+				);
+			}
+			return $is_any_variant_active;
 		}
 
 		// Controllo immagine
