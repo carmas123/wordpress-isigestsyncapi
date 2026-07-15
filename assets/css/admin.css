@@ -207,3 +207,82 @@
 		transform: rotate(360deg);
 	}
 }
+
+.isi-orphan-images-cleanup .description {
+	max-width: 800px;
+}
+
+.isi-orphan-images-report {
+	margin-top: 16px;
+	padding: 16px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-left: 4px solid #2271b1;
+	border-radius: 4px;
+}
+
+.isi-orphan-images-summary {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 12px;
+	margin-bottom: 16px;
+}
+
+.isi-orphan-images-stat-card {
+	padding: 12px 14px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+}
+
+.isi-orphan-images-stat-card.is-highlight {
+	background: #f0f6fc;
+	border-color: #72aee6;
+}
+
+.isi-orphan-images-stat-label {
+	display: block;
+	margin-bottom: 6px;
+	color: #50575e;
+	font-size: 12px;
+}
+
+.isi-orphan-images-stat-value {
+	display: block;
+	font-size: 22px;
+	line-height: 1.2;
+	color: #1d2327;
+}
+
+.isi-orphan-images-preview-title {
+	margin: 0 0 8px;
+}
+
+.isi-orphan-images-preview-table {
+	margin-top: 8px;
+}
+
+.isi-orphan-images-progress {
+	margin-top: 16px;
+	max-width: 500px;
+}
+
+.isi-orphan-images-progress-bar {
+	height: 20px;
+	background: #f0f0f1;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.isi-orphan-images-progress-fill {
+	height: 100%;
+	width: 0;
+	background: #2271b1;
+	transition: width 0.2s ease;
+}
+
+.isi-orphan-images-progress-label {
+	margin: 8px 0 0;
+	color: #50575e;
+}

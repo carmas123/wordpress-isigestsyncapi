@@ -280,6 +280,285 @@ jQuery(document).ready(function ($) {
 		)
 	);
 
+	var ISIGestSyncAPI_OrphanImages = (function () {
+		var scanData = null;
+		var isDeleting = false;
+
+		var $container = $('#isi_orphan_images_cleanup');
+		var $scanButton = $('#isi_orphan_images_scan_button');
+		var $deleteButton = $('#isi_orphan_images_delete_button');
+		var $cancelButton = $('#isi_orphan_images_cancel_button');
+		var $report = $('#isi_orphan_images_report');
+		var $summary = $('#isi_orphan_images_summary');
+		var $previewBody = $('#isi_orphan_images_preview_body');
+		var $scanProgress = $('#isi_orphan_images_scan_progress');
+		var $progress = $('#isi_orphan_images_progress');
+		var $progressFill = $('#isi_orphan_images_progress_fill');
+		var $progressLabel = $('#isi_orphan_images_progress_label');
+
+		function formatNumber(value) {
+			return Number(value || 0).toLocaleString('it-IT');
+		}
+
+		function reasonLabel(reason) {
+			if (reason === 'solo_prodotti_cestino') {
+				return 'Solo prodotti nel cestino';
+			}
+			return 'Nessun riferimento attivo';
+		}
+
+		function setButtonsDisabled(disabled) {
+			$scanButton.prop('disabled', disabled);
+			$deleteButton.prop('disabled', disabled || !scanData || !scanData.orphan_count);
+		}
+
+		function renderSummaryCard(label, value, highlight) {
+			var $card = $('<div class="isi-orphan-images-stat-card">');
+			if (highlight) {
+				$card.addClass('is-highlight');
+			}
+			$card.append($('<span class="isi-orphan-images-stat-label">').text(label));
+			$card.append($('<strong class="isi-orphan-images-stat-value">').text(value));
+			return $card;
+		}
+
+		function renderReport(data) {
+			scanData = data;
+			$summary.empty();
+			$summary.append(
+				renderSummaryCard('Immagini ISIGest totali', formatNumber(data.total_isigest))
+			);
+			$summary.append(
+				renderSummaryCard('Immagini orfane', formatNumber(data.orphan_count), true)
+			);
+			$summary.append(
+				renderSummaryCard(
+					'Solo prodotti nel cestino',
+					formatNumber(data.orphan_only_trash || 0)
+				)
+			);
+			$summary.append(
+				renderSummaryCard('Senza riferimento', formatNumber(data.orphan_no_reference || 0))
+			);
+
+			var sizeLabel = data.orphan_size_is_estimate
+				? 'Spazio stimato recuperabile (appross.)'
+				: 'Spazio stimato recuperabile';
+			$summary.append(renderSummaryCard(sizeLabel, data.orphan_size_human || '0 B'));
+
+			$previewBody.empty();
+			if (data.preview && data.preview.length) {
+				data.preview.forEach(function (row) {
+					$previewBody.append(
+						$('<tr>').append(
+							$('<td>').text(row.id),
+							$('<td>').text(row.filename || ''),
+							$('<td>').text(row.isigest_sku || ''),
+							$('<td>').text(row.post_parent || 0),
+							$('<td>').text(reasonLabel(row.reason))
+						)
+					);
+				});
+			} else {
+				$previewBody.append(
+					$('<tr>').append($('<td colspan="5">').text('Nessuna immagine orfana trovata.'))
+				);
+			}
+
+			$report.show();
+			setButtonsDisabled(false);
+
+			$('html, body').animate(
+				{
+					scrollTop: Math.max($container.offset().top - 40, 0)
+				},
+				300
+			);
+		}
+
+		function updateProgress(processed, total) {
+			var percent = total > 0 ? Math.round((processed / total) * 100) : 100;
+			$progressFill.css('width', percent + '%');
+			$progressLabel.text(processed + ' / ' + total + ' elaborate');
+		}
+
+		function runDeleteBatch() {
+			return $.ajax({
+				url: ajaxurl,
+				type: 'POST',
+				data: {
+					action: 'isigestsyncapi_orphan_images_delete_batch',
+					nonce: isigestsyncapi.nonce
+				}
+			});
+		}
+
+		function deleteAllBatches() {
+			if (!isDeleting) {
+				return;
+			}
+
+			runDeleteBatch()
+				.done(function (response) {
+					if (!response.success) {
+						ISIGestSyncAPI_ShowNotice(
+							'error',
+							(response.data && response.data.message) ||
+								"Errore durante l'eliminazione"
+						);
+						isDeleting = false;
+						$cancelButton.hide();
+						setButtonsDisabled(false);
+						return;
+					}
+
+					var data = response.data;
+					updateProgress(data.processed, data.total);
+
+					if (data.errors && data.errors.length) {
+						ISIGestSyncAPI_ShowNotice(
+							'error',
+							'Errori parziali: ' + data.errors.join('; ')
+						);
+					}
+
+					if (data.done) {
+						isDeleting = false;
+						$cancelButton.hide();
+						setButtonsDisabled(false);
+						ISIGestSyncAPI_ShowNotice(
+							'success',
+							'Eliminazione completata: ' + data.processed + ' immagini elaborate'
+						);
+						scanData = null;
+						$deleteButton.prop('disabled', true);
+						return;
+					}
+
+					deleteAllBatches();
+				})
+				.fail(function () {
+					ISIGestSyncAPI_ShowNotice('error', 'Si è verificato un problema');
+					isDeleting = false;
+					$cancelButton.hide();
+					setButtonsDisabled(false);
+				});
+		}
+
+		function init() {
+			if (!$scanButton.length) {
+				return;
+			}
+
+			$scanButton.on('click', function (e) {
+				e.preventDefault();
+				if (isDeleting) {
+					return;
+				}
+
+				var originalText = $scanButton.text();
+				setButtonsDisabled(true);
+				$scanButton.text('Analisi in corso...');
+				$report.hide();
+				$progress.hide();
+				$scanProgress.show();
+
+				$.ajax({
+					url: ajaxurl,
+					type: 'POST',
+					timeout: 300000,
+					data: {
+						action: 'isigestsyncapi_orphan_images_scan',
+						nonce: isigestsyncapi.nonce
+					},
+					success: function (response) {
+						if (response.success) {
+							renderReport(response.data);
+							ISIGestSyncAPI_ShowNotice(
+								'success',
+								'Analisi completata: ' +
+									formatNumber(response.data.orphan_count) +
+									' immagini orfane'
+							);
+						} else {
+							ISIGestSyncAPI_ShowNotice(
+								'error',
+								(response.data && response.data.message) ||
+									"Errore durante l'analisi"
+							);
+							setButtonsDisabled(false);
+						}
+					},
+					error: function (xhr, status) {
+						var message =
+							status === 'timeout'
+								? 'Analisi troppo lunga: riprova o aumenta il timeout PHP del server'
+								: 'Si è verificato un problema';
+						ISIGestSyncAPI_ShowNotice('error', message);
+						setButtonsDisabled(false);
+					},
+					complete: function () {
+						$scanButton.text(originalText);
+						$scanProgress.hide();
+					}
+				});
+			});
+
+			$deleteButton.on('click', function (e) {
+				e.preventDefault();
+				if (!scanData || !scanData.orphan_count || isDeleting) {
+					return;
+				}
+
+				var confirmMessage =
+					'Eliminare ' +
+					formatNumber(scanData.orphan_count) +
+					' immagini orfane (' +
+					(scanData.orphan_size_human || '0 B') +
+					")? L'operazione è irreversibile.";
+				if (!confirm(confirmMessage)) {
+					return;
+				}
+
+				isDeleting = true;
+				setButtonsDisabled(true);
+				$cancelButton.show();
+				$progress.show();
+				updateProgress(0, scanData.orphan_count);
+				deleteAllBatches();
+			});
+
+			$cancelButton.on('click', function (e) {
+				e.preventDefault();
+				if (!isDeleting) {
+					return;
+				}
+
+				$.ajax({
+					url: ajaxurl,
+					type: 'POST',
+					data: {
+						action: 'isigestsyncapi_orphan_images_cancel',
+						nonce: isigestsyncapi.nonce
+					},
+					complete: function () {
+						isDeleting = false;
+						$cancelButton.hide();
+						$progress.hide();
+						setButtonsDisabled(false);
+						ISIGestSyncAPI_ShowNotice('success', 'Operazione annullata');
+					}
+				});
+			});
+		}
+
+		return {
+			init: init
+		};
+	})();
+
+	ISIGestSyncAPI_OrphanImages.init();
+
 	// Gestione click sulla cella di esportazione
 	$(document).on('click', '.isigest-export-status', function (e) {
 		e.preventDefault();

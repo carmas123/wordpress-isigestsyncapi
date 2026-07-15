@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ISIGest Sync API
  * Description: Plugin per la sincronizzazione dei prodotti tramite API
- * Version: 1.0.156
+ * Version: 1.0.157
  * Author: ISIGest S.r.l.
  * Author URI: https://www.isigest.net
  * Requires at least: 6.0
@@ -26,7 +26,7 @@ if (!defined('WPINC')) {
 }
 
 // Definizioni costanti
-define('ISIGESTSYNCAPI_VERSION', '1.0.156');
+define('ISIGESTSYNCAPI_VERSION', '1.0.157');
 define('ISIGESTSYNCAPI_PLUGIN_FILE', __FILE__);
 define('ISIGESTSYNCAPI_PLUGIN_DIR', plugin_dir_path(ISIGESTSYNCAPI_PLUGIN_FILE));
 define('ISIGESTSYNCAPI_PLUGIN_URL', plugin_dir_url(ISIGESTSYNCAPI_PLUGIN_FILE));
@@ -415,8 +415,8 @@ class Plugin {
 			// Verifica se l'ordine è stato esportato
 			$is_exported = (bool) $wpdb->get_var(
 				$wpdb->prepare(
-					"SELECT is_exported 
-            FROM {$wpdb->prefix}isi_api_export_order 
+					"SELECT is_exported
+            FROM {$wpdb->prefix}isi_api_export_order
             WHERE order_id = %d",
 					$order_id,
 				),
@@ -514,8 +514,8 @@ class Plugin {
 		// Verifica se l'ordine esiste
 		$current_status = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT is_exported 
-				FROM {$wpdb->prefix}isi_api_export_order 
+				"SELECT is_exported
+				FROM {$wpdb->prefix}isi_api_export_order
 				WHERE order_id = %d",
 				$order_id,
 			),

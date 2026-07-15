@@ -13,6 +13,7 @@ namespace ISIGestSyncAPI\Admin;
 use ISIGestSyncAPI\Core\ConfigHelper;
 use ISIGestSyncAPI\Core\Utilities;
 use ISIGestSyncAPI\Services\CustomerService;
+use ISIGestSyncAPI\Services\ImageService;
 use ISIGestSyncAPI\Services\OrderService;
 use ISIGestSyncAPI\Services\ProductService;
 
@@ -66,6 +67,15 @@ class Settings {
 		add_action('wp_ajax_isigestsyncapi_clear_log', [$this, 'ajaxClearLog']);
 		add_action('wp_ajax_isigestsyncapi_refresh_log', [$this, 'ajaxRefreshLog']);
 		add_action('wp_ajax_isigestsyncapi_commands', [$this, 'ajaxCommands']);
+		add_action('wp_ajax_isigestsyncapi_orphan_images_scan', [$this, 'ajaxOrphanImagesScan']);
+		add_action('wp_ajax_isigestsyncapi_orphan_images_delete_batch', [
+			$this,
+			'ajaxOrphanImagesDeleteBatch',
+		]);
+		add_action('wp_ajax_isigestsyncapi_orphan_images_cancel', [
+			$this,
+			'ajaxOrphanImagesCancel',
+		]);
 	}
 
 	/**
@@ -617,6 +627,14 @@ class Settings {
 					]),
 
 					// Advanced Settings
+					$this->buildHTML(
+						'orphan_images_cleanup',
+						'',
+						'advanced',
+						'Manutenzione immagini',
+						[$this->helper, 'renderOrphanImagesCleanup'],
+					),
+
 					$this->buildCheckbox(
 						'enable_debug',
 						'Attiva log dettagliato',
@@ -844,6 +862,148 @@ class Settings {
 		}
 		wp_send_json_success([
 			'message' => __('Comando eseguito con successo', 'isigestsyncapi'),
+		]);
+	}
+
+	/**
+	 * Restituisce il job di pulizia orfane salvato in transient.
+	 *
+	 * @return array|null
+	 */
+	private function getOrphanCleanupJob() {
+		$transient_key = ImageService::getOrphanCleanupTransientKey(get_current_user_id());
+		$job = get_transient($transient_key);
+
+		return \is_array($job) ? $job : null;
+	}
+
+	/**
+	 * Salva il job di pulizia orfane in transient.
+	 *
+	 * @param array $job Dati job.
+	 * @return void
+	 */
+	private function saveOrphanCleanupJob(array $job) {
+		$transient_key = ImageService::getOrphanCleanupTransientKey(get_current_user_id());
+		set_transient($transient_key, $job, HOUR_IN_SECONDS);
+	}
+
+	/**
+	 * Elimina il job di pulizia orfane.
+	 *
+	 * @return void
+	 */
+	private function deleteOrphanCleanupJob() {
+		$transient_key = ImageService::getOrphanCleanupTransientKey(get_current_user_id());
+		delete_transient($transient_key);
+	}
+
+	/**
+	 * Gestisce la richiesta AJAX per l'analisi delle immagini orfane.
+	 *
+	 * @return void
+	 */
+	public function ajaxOrphanImagesScan() {
+		if (!$this->checkAjax()) {
+			return;
+		}
+
+		$image_service = new ImageService();
+		$scan = $image_service->scanOrphanImages();
+
+		$job = [
+			'orphan_ids' => $scan['orphan_ids'],
+			'stats' => $scan['stats'],
+			'offset' => 0,
+			'user_id' => get_current_user_id(),
+		];
+		$this->saveOrphanCleanupJob($job);
+
+		wp_send_json_success(
+			array_merge($scan['stats'], [
+				'job_id' => ImageService::getOrphanCleanupTransientKey(get_current_user_id()),
+			]),
+		);
+	}
+
+	/**
+	 * Gestisce la richiesta AJAX per l'eliminazione batch delle immagini orfane.
+	 *
+	 * @return void
+	 */
+	public function ajaxOrphanImagesDeleteBatch() {
+		if (!$this->checkAjax()) {
+			return;
+		}
+
+		$job = $this->getOrphanCleanupJob();
+		if ($job === null || empty($job['orphan_ids']) || !\is_array($job['orphan_ids'])) {
+			wp_send_json_error([
+				'message' => __(
+					'Nessuna analisi attiva. Esegui prima l\'analisi.',
+					'isigestsyncapi',
+				),
+			]);
+			return;
+		}
+
+		$offset = isset($job['offset']) ? (int) $job['offset'] : 0;
+		$remaining_ids = array_slice($job['orphan_ids'], $offset);
+		$total = count($job['orphan_ids']);
+
+		if (empty($remaining_ids)) {
+			$this->deleteOrphanCleanupJob();
+			wp_send_json_success([
+				'processed' => $total,
+				'total' => $total,
+				'deleted' => 0,
+				'skipped' => 0,
+				'errors' => [],
+				'done' => true,
+			]);
+			return;
+		}
+
+		$image_service = new ImageService();
+		$batch_count = min(ImageService::ORPHAN_DELETE_BATCH_SIZE, count($remaining_ids));
+		$result = $image_service->deleteOrphanBatch(
+			$remaining_ids,
+			ImageService::ORPHAN_DELETE_BATCH_SIZE,
+		);
+
+		$job['offset'] = $offset + $batch_count;
+		$done = $job['offset'] >= $total;
+
+		if ($done) {
+			$this->deleteOrphanCleanupJob();
+		} else {
+			$this->saveOrphanCleanupJob($job);
+		}
+
+		wp_send_json_success([
+			'processed' => min($job['offset'], $total),
+			'total' => $total,
+			'deleted' => $result['deleted'],
+			'skipped' => $result['skipped'],
+			'errors' => $result['errors'],
+			'done' => $done,
+		]);
+	}
+
+	/**
+	 * Annulla il job di pulizia immagini orfane.
+	 *
+	 * @return void
+	 */
+	public function ajaxOrphanImagesCancel() {
+		if (!$this->checkAjax()) {
+			return;
+		}
+
+		$this->deleteOrphanCleanupJob();
+
+		wp_send_json_success([
+			'message' => __('Operazione annullata', 'isigestsyncapi'),
 		]);
 	}
 

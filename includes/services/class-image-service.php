@@ -475,4 +475,351 @@ class ImageService extends BaseService {
 
 		return $images;
 	}
+
+	/**
+	 * Dimensione batch predefinita per l'eliminazione delle immagini orfane.
+	 */
+	public const ORPHAN_DELETE_BATCH_SIZE = 25;
+
+	/**
+	 * Numero massimo di righe nell'anteprima del report orfane.
+	 */
+	private const ORPHAN_PREVIEW_LIMIT = 15;
+
+	/**
+	 * Campione massimo per la stima dello spazio occupato dalle orfane.
+	 */
+	private const ORPHAN_SIZE_SAMPLE_LIMIT = 250;
+
+	/**
+	 * Raccoglie gli ID immagine referenziati da prodotti/varianti non nel cestino.
+	 *
+	 * @return array<int>
+	 */
+	public function collectActiveReferencedImageIds(): array {
+		return $this->collectReferencedImageIds(false);
+	}
+
+	/**
+	 * Raccoglie gli ID immagine referenziati da prodotti/varianti nel cestino.
+	 *
+	 * @return array<int>
+	 */
+	public function collectTrashReferencedImageIds(): array {
+		return $this->collectReferencedImageIds(true);
+	}
+
+	/**
+	 * Raccoglie gli ID immagine referenziati da prodotti WooCommerce.
+	 *
+	 * @param bool $trash_only Se true, solo prodotti nel cestino.
+	 * @return array<int>
+	 */
+	private function collectReferencedImageIds(bool $trash_only): array {
+		global $wpdb;
+
+		$referenced = [];
+		$status_condition = $trash_only ? "p.post_status = 'trash'" : "p.post_status != 'trash'";
+		$post_type_in = "'product', 'product_variation'";
+
+		$thumbnail_rows = $wpdb->get_col(
+			"SELECT pm.meta_value
+			FROM {$wpdb->postmeta} pm
+			INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+			WHERE pm.meta_key = '_thumbnail_id'
+			AND p.post_type IN ({$post_type_in})
+			AND {$status_condition}
+			AND pm.meta_value != '' AND pm.meta_value != '0'",
+		);
+
+		foreach ($thumbnail_rows as $meta_value) {
+			$image_id = (int) $meta_value;
+			if ($image_id > 0) {
+				$referenced[$image_id] = true;
+			}
+		}
+
+		$gallery_rows = $wpdb->get_col(
+			"SELECT pm.meta_value
+			FROM {$wpdb->postmeta} pm
+			INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+			WHERE pm.meta_key = '_product_image_gallery'
+			AND p.post_type IN ({$post_type_in})
+			AND {$status_condition}
+			AND pm.meta_value != ''",
+		);
+
+		foreach ($gallery_rows as $gallery) {
+			$this->addGalleryImageIds($referenced, $gallery);
+		}
+
+		if ($this->use_woo_variation_gallery) {
+			$variation_gallery_rows = $wpdb->get_col(
+				"SELECT pm.meta_value
+				FROM {$wpdb->postmeta} pm
+				INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+				WHERE pm.meta_key = 'woo_variation_gallery_images'
+				AND p.post_type IN ({$post_type_in})
+				AND {$status_condition}
+				AND pm.meta_value != ''",
+			);
+
+			foreach ($variation_gallery_rows as $serialized_gallery) {
+				$gallery_ids = maybe_unserialize($serialized_gallery);
+				if (!\is_array($gallery_ids)) {
+					continue;
+				}
+
+				foreach ($gallery_ids as $gallery_id) {
+					$image_id = (int) $gallery_id;
+					if ($image_id > 0) {
+						$referenced[$image_id] = true;
+					}
+				}
+			}
+		}
+
+		return array_map('intval', array_keys($referenced));
+	}
+
+	/**
+	 * Aggiunge gli ID immagine da una stringa galleria prodotto.
+	 *
+	 * @param array<int, bool> $referenced Mappa ID immagine.
+	 * @param string           $gallery    Valore meta _product_image_gallery.
+	 * @return void
+	 */
+	private function addGalleryImageIds(array &$referenced, $gallery) {
+		foreach (explode(',', (string) $gallery) as $gallery_id) {
+			$image_id = (int) trim($gallery_id);
+			if ($image_id > 0) {
+				$referenced[$image_id] = true;
+			}
+		}
+	}
+
+	/**
+	 * Restituisce tutti gli attachment marcati come immagini ISIGest.
+	 *
+	 * @return array<int>
+	 */
+	public function findIsigestImageIds(): array {
+		global $wpdb;
+
+		$ids = $wpdb->get_col(
+			"SELECT DISTINCT p.ID
+			FROM {$wpdb->posts} p
+			INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+			WHERE p.post_type = 'attachment'
+			AND pm.meta_key = 'isigest_image'
+			AND pm.meta_value IN ('1', 'true', 'yes')",
+		);
+
+		return array_map('intval', $ids ?: []);
+	}
+
+	/**
+	 * Trova gli ID delle immagini ISIGest orfane.
+	 *
+	 * @return array<int>
+	 */
+	public function findOrphanImageIds(?array $isigest_ids = null): array {
+		if ($isigest_ids === null) {
+			$isigest_ids = $this->findIsigestImageIds();
+		}
+		if (empty($isigest_ids)) {
+			return [];
+		}
+
+		$active_referenced = array_flip($this->collectActiveReferencedImageIds());
+
+		return array_values(
+			array_filter($isigest_ids, function ($image_id) use ($active_referenced) {
+				return !isset($active_referenced[$image_id]);
+			}),
+		);
+	}
+
+	/**
+	 * Verifica se un attachment ISIGest è orfano.
+	 *
+	 * @param int        $image_id                ID attachment.
+	 * @param array|null $active_referenced_map   Mappa opzionale ID referenziati attivi.
+	 * @return bool
+	 */
+	public function isOrphanImage($image_id, ?array $active_referenced_map = null) {
+		$image_id = (int) $image_id;
+		if ($image_id <= 0) {
+			return false;
+		}
+
+		if (!get_post_meta($image_id, 'isigest_image', true)) {
+			return false;
+		}
+
+		if ($active_referenced_map === null) {
+			$active_referenced_map = array_flip($this->collectActiveReferencedImageIds());
+		}
+
+		return !isset($active_referenced_map[$image_id]);
+	}
+
+	/**
+	 * Costruisce il report di analisi delle immagini orfane.
+	 *
+	 * @param array<int>   $orphan_ids     ID immagini orfane.
+	 * @param int|null     $total_isigest  Totale immagini ISIGest (opzionale).
+	 * @return array
+	 */
+	public function buildOrphanScanReport(array $orphan_ids, $total_isigest = null): array {
+		$orphan_count = count($orphan_ids);
+		if ($total_isigest === null) {
+			$total_isigest = count($this->findIsigestImageIds());
+		}
+
+		$trash_referenced = array_flip($this->collectTrashReferencedImageIds());
+		$orphan_only_trash = 0;
+		foreach ($orphan_ids as $image_id) {
+			if (isset($trash_referenced[$image_id])) {
+				$orphan_only_trash++;
+			}
+		}
+		$orphan_no_reference = $orphan_count - $orphan_only_trash;
+
+		$orphan_size_bytes = 0;
+		$size_is_estimate = false;
+		if ($orphan_count > 0) {
+			$sample_ids =
+				$orphan_count <= self::ORPHAN_SIZE_SAMPLE_LIMIT
+					? $orphan_ids
+					: array_merge(
+						array_slice($orphan_ids, 0, (int) (self::ORPHAN_SIZE_SAMPLE_LIMIT / 2)),
+						array_slice($orphan_ids, -(int) (self::ORPHAN_SIZE_SAMPLE_LIMIT / 2)),
+					);
+
+			$sample_bytes = 0;
+			$sample_count = 0;
+			foreach ($sample_ids as $image_id) {
+				$file_path = get_attached_file($image_id);
+				if ($file_path && file_exists($file_path)) {
+					$sample_bytes += (int) filesize($file_path);
+					$sample_count++;
+				}
+			}
+
+			if ($sample_count > 0) {
+				$orphan_size_bytes = (int) round(($sample_bytes / $sample_count) * $orphan_count);
+				$size_is_estimate = $orphan_count > self::ORPHAN_SIZE_SAMPLE_LIMIT;
+			}
+		}
+
+		$preview = [];
+		foreach (array_slice($orphan_ids, 0, self::ORPHAN_PREVIEW_LIMIT) as $image_id) {
+			$reason = isset($trash_referenced[$image_id])
+				? 'solo_prodotti_cestino'
+				: 'nessun_riferimento';
+			$attachment = get_post($image_id);
+			$preview[] = [
+				'id' => $image_id,
+				'filename' => $attachment ? basename((string) get_attached_file($image_id)) : '',
+				'isigest_sku' => (string) get_post_meta($image_id, 'isigest_sku', true),
+				'post_parent' => $attachment ? (int) $attachment->post_parent : 0,
+				'reason' => $reason,
+			];
+		}
+
+		Utilities::logWarn(
+			sprintf(
+				'Analisi immagini orfane ISIGest: totali=%d, orfane=%d, solo_cestino=%d, senza_riferimento=%d',
+				$total_isigest,
+				$orphan_count,
+				$orphan_only_trash,
+				$orphan_no_reference,
+			),
+		);
+
+		return [
+			'total_isigest' => $total_isigest,
+			'orphan_count' => $orphan_count,
+			'orphan_only_trash' => $orphan_only_trash,
+			'orphan_no_reference' => $orphan_no_reference,
+			'orphan_size_bytes' => $orphan_size_bytes,
+			'orphan_size_human' => size_format($orphan_size_bytes, 2),
+			'orphan_size_is_estimate' => $size_is_estimate,
+			'preview' => $preview,
+		];
+	}
+
+	/**
+	 * Esegue scan completo e restituisce report + lista ID orfane.
+	 *
+	 * @return array{orphan_ids: array<int>, stats: array}
+	 */
+	public function scanOrphanImages(): array {
+		$isigest_ids = $this->findIsigestImageIds();
+		$orphan_ids = $this->findOrphanImageIds($isigest_ids);
+		$stats = $this->buildOrphanScanReport($orphan_ids, count($isigest_ids));
+
+		return [
+			'orphan_ids' => $orphan_ids,
+			'stats' => $stats,
+		];
+	}
+
+	/**
+	 * Elimina un batch di immagini orfane.
+	 *
+	 * @param array<int> $ids   Lista ID da processare.
+	 * @param int        $limit Numero massimo di eliminazioni per batch.
+	 * @return array{deleted: int, skipped: int, errors: array<string>}
+	 */
+	public function deleteOrphanBatch(array $ids, $limit = self::ORPHAN_DELETE_BATCH_SIZE) {
+		$this->loadMediaDependencies();
+
+		$limit = max(1, (int) $limit);
+		$batch_ids = array_slice(array_values($ids), 0, $limit);
+		$active_referenced_map = array_flip($this->collectActiveReferencedImageIds());
+
+		$deleted = 0;
+		$skipped = 0;
+		$errors = [];
+
+		foreach ($batch_ids as $image_id) {
+			$image_id = (int) $image_id;
+
+			if (!$this->isOrphanImage($image_id, $active_referenced_map)) {
+				$skipped++;
+				continue;
+			}
+
+			$result = wp_delete_attachment($image_id, true);
+			if ($result) {
+				$deleted++;
+			} else {
+				$errors[] = sprintf('Impossibile eliminare attachment ID %d', $image_id);
+			}
+		}
+
+		if ($deleted > 0) {
+			Utilities::logWarn(
+				sprintf('Eliminate %d immagini orfane ISIGest (saltate: %d)', $deleted, $skipped),
+			);
+		}
+
+		return [
+			'deleted' => $deleted,
+			'skipped' => $skipped,
+			'errors' => $errors,
+		];
+	}
+
+	/**
+	 * Chiave transient per il job di pulizia orfane.
+	 *
+	 * @param int $user_id ID utente WordPress.
+	 * @return string
+	 */
+	public static function getOrphanCleanupTransientKey($user_id) {
+		return 'isigestsyncapi_orphan_cleanup_' . (int) $user_id;
+	}
 }

@@ -289,9 +289,25 @@ class SettingsHelper {
 	 * Renderizza un campo personalizzato HTML
 	 */
 	private function renderHtml($field) {
-		if (isset($field['callback']) && is_callable($field['callback'])) {
-			call_user_func($field['callback'], $field);
+		if (!isset($field['callback']) || !is_callable($field['callback'])) {
+			return;
 		}
+
+		ob_start();
+		call_user_func($field['callback'], $field);
+		$html = ob_get_clean();
+
+		if (preg_match('/^\s*<tr\b/i', $html)) {
+			echo $html;
+			return;
+		}
+		?>
+		<tr>
+			<td colspan="2">
+				<?php echo $html; ?>
+			</td>
+		</tr>
+		<?php
 	}
 
 	private function renderCustomFunctionsFileField($field) {
@@ -370,6 +386,56 @@ class SettingsHelper {
                 <?php echo esc_html('Metti in bozza i prodotti ISIGest'); ?>
             </button>
         <?php
+	}
+
+	public function renderOrphanImagesCleanup() {
+		?>
+		<div id="isi_orphan_images_cleanup" class="isi-orphan-images-cleanup">
+			<p class="description">
+				<?php echo esc_html(
+    	'Analizza e rimuove le immagini inviate da ISIGest (meta isigest_image) non più usate da prodotti o varianti attivi. Le immagini collegate solo a prodotti nel cestino sono considerate orfane.',
+    ); ?>
+			</p>
+			<p>
+				<button type="button" class="button button-primary" id="isi_orphan_images_scan_button">
+					<?php echo esc_html('Analizza immagini orfane'); ?>
+				</button>
+				<button type="button" class="button button-secondary" id="isi_orphan_images_delete_button" disabled>
+					<?php echo esc_html('Elimina immagini orfane'); ?>
+				</button>
+				<button type="button" class="button" id="isi_orphan_images_cancel_button" style="display: none;">
+					<?php echo esc_html('Annulla'); ?>
+				</button>
+			</p>
+			<div id="isi_orphan_images_scan_progress" class="isi-orphan-images-progress" style="display: none;">
+				<p class="isi-orphan-images-progress-label"><?php echo esc_html('Analisi in corso...'); ?></p>
+			</div>
+			<div id="isi_orphan_images_progress" class="isi-orphan-images-progress" style="display: none;">
+				<div class="isi-orphan-images-progress-bar">
+					<div id="isi_orphan_images_progress_fill" class="isi-orphan-images-progress-fill"></div>
+				</div>
+				<p id="isi_orphan_images_progress_label" class="isi-orphan-images-progress-label"></p>
+			</div>
+			<div id="isi_orphan_images_report" class="isi-orphan-images-report" style="display: none;">
+				<div id="isi_orphan_images_summary" class="isi-orphan-images-summary"></div>
+				<p class="isi-orphan-images-preview-title">
+					<strong><?php echo esc_html('Anteprima (prime 15 immagini)'); ?></strong>
+				</p>
+				<table class="widefat striped isi-orphan-images-preview-table">
+					<thead>
+						<tr>
+							<th><?php echo esc_html('ID'); ?></th>
+							<th><?php echo esc_html('File'); ?></th>
+							<th><?php echo esc_html('SKU ISIGest'); ?></th>
+							<th><?php echo esc_html('Parent'); ?></th>
+							<th><?php echo esc_html('Motivo'); ?></th>
+						</tr>
+					</thead>
+					<tbody id="isi_orphan_images_preview_body"></tbody>
+				</table>
+			</div>
+		</div>
+		<?php
 	}
 
 	// Questo metoto serve a mostrare un avviso quando la tabella degli ordini non è abilitata in WooCommerce
