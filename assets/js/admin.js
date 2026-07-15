@@ -214,10 +214,11 @@ jQuery(document).ready(function ($) {
 
 	// Handler per il pulsante "Imposta tutti i clienti come esportati"
 	// Funzione generica per gestire i click sui pulsanti per i comandi
-	function handleCommandButtonClick(command) {
+	function handleCommandButtonClick(command, confirmMessage) {
 		return function (e) {
 			e.preventDefault();
-			if (!confirm("Confermi l'esecuzione del comando?")) {
+			const message = confirmMessage || "Confermi l'esecuzione del comando?";
+			if (!confirm(message)) {
 				return;
 			}
 
@@ -270,6 +271,13 @@ jQuery(document).ready(function ($) {
 	$('#isi_advanced_danger_zone_delete_products_association_button').on(
 		'click',
 		handleCommandButtonClick('advanced_danger_zone_delete_products_association')
+	);
+	$('#isi_advanced_danger_zone_draft_all_catalog_button').on(
+		'click',
+		handleCommandButtonClick(
+			'advanced_danger_zone_draft_all_catalog',
+			'Questa operazione metterà in bozza tutti i prodotti e le varianti sincronizzati da ISIGest. Verranno riattivati solo quelli inviati dalla prossima sincronizzazione. Continuare?'
+		)
 	);
 
 	// Gestione click sulla cella di esportazione

@@ -826,6 +826,16 @@ class Settings {
 				$x = new ProductService();
 				$x->deleteProductsAssociation();
 				break;
+			case 'advanced_danger_zone_draft_all_catalog':
+				$x = new ProductService();
+				$updated = $x->draftAllCatalog();
+				wp_send_json_success([
+					'message' => sprintf(
+						__('Prodotti ISIGest messi in bozza: %d aggiornati', 'isigestsyncapi'),
+						$updated,
+					),
+				]);
+				return;
 			default:
 				wp_send_json_error([
 					'message' => __('Comando non valido', 'isigestsyncapi'),

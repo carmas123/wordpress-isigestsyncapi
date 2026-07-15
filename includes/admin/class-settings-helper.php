@@ -366,6 +366,9 @@ class SettingsHelper {
             <button type="button" class="button" id="isi_advanced_danger_zone_delete_products_association_button">
                 <?php echo esc_html('Elimina la relazione tra i prodotti e ISIGest'); ?>
             </button>
+            <button type="button" class="button" id="isi_advanced_danger_zone_draft_all_catalog_button" style="margin-left: 8px;">
+                <?php echo esc_html('Metti in bozza i prodotti ISIGest'); ?>
+            </button>
         <?php
 	}
 

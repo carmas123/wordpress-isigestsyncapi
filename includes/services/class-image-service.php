@@ -126,8 +126,6 @@ class ImageService extends BaseService {
 			// Gestisci l'associazione dell'immagine
 			if ($variation_id && !$is_not_main_variant) {
 				$this->setVariationImage($variation_id, $attachment_id);
-				// Aggiorniamo l'attributo di default in modo da aggiornare anche l'immagine di copertina del prodotto
-				ProductService::updateDefaultVariant($product_id);
 			} else {
 				if ($variation_id) {
 					// Aggiungiamo l'immagine alla galleria della variante
@@ -157,6 +155,10 @@ class ImageService extends BaseService {
 					// Aggiungiamo l'immagine al prodotto
 					$this->setProductImage($product_id, $attachment_id, $is_main);
 				}
+			}
+
+			if ($variation_id) {
+				ProductService::updateDefaultVariant($product_id);
 			}
 
 			// Pulisci il file temporaneo

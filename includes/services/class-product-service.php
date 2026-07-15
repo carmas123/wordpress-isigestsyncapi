@@ -159,6 +159,10 @@ class ProductService extends BaseService {
 		// Salviamo il prodotto
 		$product->save();
 
+		if ($use_attributes && ProductService::isVariable($product)) {
+			self::updateDefaultVariant($product->get_id());
+		}
+
 		// Lanciamo la gestione dei Campi Personalizzati
 		$this->custom_functions_manager->handleProductCustomFields($product, $data);
 
@@ -703,23 +707,25 @@ class ProductService extends BaseService {
 		$attributes = [];
 
 		if ($is_tc) {
-			$t_key = ConfigHelper::getSizeAndColorSizeKey();
-			$t_label = 'Taglia';
-			$attributes[$t_key] = [
-				'variant' => true,
-				'label' => $t_label,
-				'value' => $variant['size_name'],
-				'archive' => true,
-			];
+			if (!empty($variant['size_name'])) {
+				$t_key = ConfigHelper::getSizeAndColorSizeKey();
+				$attributes[$t_key] = [
+					'variant' => true,
+					'label' => 'Taglia',
+					'value' => $variant['size_name'],
+					'archive' => true,
+				];
+			}
 
-			$c_key = ConfigHelper::getSizeAndColorColorKey();
-			$c_label = 'Colore';
-			$attributes[$c_key] = [
-				'variant' => true,
-				'label' => $c_label,
-				'value' => $variant['color_name'],
-				'archive' => true,
-			];
+			if (!empty($variant['color_name'])) {
+				$c_key = ConfigHelper::getSizeAndColorColorKey();
+				$attributes[$c_key] = [
+					'variant' => true,
+					'label' => 'Colore',
+					'value' => $variant['color_name'],
+					'archive' => true,
+				];
+			}
 		} else {
 			// Attributi standard
 			for ($i = 1; $i <= 3; $i++) {
@@ -938,7 +944,9 @@ class ProductService extends BaseService {
 					];
 					$processed_attributes[$key]['values'] = [];
 				}
-				$processed_attributes[$key]['values'][] = $value['value'];
+				if ($value['value'] !== '' && $value['value'] !== null) {
+					$processed_attributes[$key]['values'][] = $value['value'];
+				}
 			}
 		}
 
@@ -1263,12 +1271,12 @@ class ProductService extends BaseService {
 			}
 		}
 
-		// Aggiorniamo la variante di default
-		self::updateDefaultVariant($product->get_id());
-
-		// Aggiorniamo il datastore
+		// Lookup prima del default: get_available_variations() dipende dalla tabella attributi
 		$lookupDataStore = new LookupDataStore();
 		$lookupDataStore->create_data_for_product($product->get_id());
+
+		wc_delete_product_transients($product->get_id());
+		self::updateDefaultVariant($product->get_id());
 	}
 
 	private function updateVariationData($variation, $data, $is_tc) {
@@ -1350,88 +1358,210 @@ class ProductService extends BaseService {
 
 	public static function updateDefaultVariant($product_id) {
 		$product = wc_get_product($product_id);
+		if (!$product || !ProductService::isVariable($product)) {
+			return null;
+		}
 
-		// Verifica che sia un prodotto variabile
-		if ($product && ProductService::isVariable($product)) {
+		wc_delete_product_transients($product_id);
+
+		$variation_id = self::pickDefaultVariationId($product);
+		if (!$variation_id) {
+			return null;
+		}
+
+		$variation = wc_get_product($variation_id);
+		if (!$variation instanceof \WC_Product_Variation) {
+			return null;
+		}
+
+		$default_attributes = self::buildDefaultAttributesFromVariation($variation);
+		if (empty($default_attributes)) {
+			return null;
+		}
+
+		$parent = wc_get_product($product_id);
+		if ($parent instanceof \WC_Product_Variable) {
+			$parent->set_default_attributes($default_attributes);
+			$parent->save();
+		} else {
+			update_post_meta($product_id, '_default_attributes', $default_attributes);
+		}
+
+		self::syncParentThumbnailFromVariations($product_id, $variation_id);
+
+		return $variation_id;
+	}
+
+	/**
+	 * @param \WC_Product_Variation $variation
+	 * @return array<string, string>
+	 */
+	private static function buildDefaultAttributesFromVariation($variation) {
+		$default_attributes = [];
+
+		foreach ($variation->get_attributes() as $key => $value) {
+			if ($value === '' || $value === null) {
+				continue;
+			}
+
+			$taxonomy = str_starts_with($key, 'attribute_')
+				? substr($key, strlen('attribute_'))
+				: $key;
+			$default_attributes[$taxonomy] = $value;
+		}
+
+		return $default_attributes;
+	}
+
+	/**
+	 * @param \WC_Product $product
+	 */
+	private static function pickDefaultVariationId($product) {
+		if ($product instanceof \WC_Product_Variable) {
 			$available_variations = $product->get_available_variations();
-
 			if (!empty($available_variations)) {
 				$lowest_price = PHP_FLOAT_MAX;
-				$lowest_price_variation = null;
+				$best_id = null;
 
-				foreach ($available_variations as $variation) {
-					// Controlla se la variante è acquistabile
-					if (!$variation['is_purchasable'] || !$variation['is_in_stock']) {
+				foreach ($available_variations as $row) {
+					if (!$row['is_purchasable'] || !$row['is_in_stock']) {
 						continue;
 					}
 
-					$price = !empty($variation['display_price'])
-						? $variation['display_price']
-						: (!empty($variation['display_regular_price'])
-							? $variation['display_regular_price']
-							: PHP_FLOAT_MAX);
-
+					$price = self::variationRowPrice($row);
 					if ($price < $lowest_price) {
 						$lowest_price = $price;
-						$lowest_price_variation = $variation;
+						$best_id = (int) $row['variation_id'];
 					}
 				}
 
-				if ($lowest_price_variation) {
-					// Imposta gli attributi predefiniti
-					$default_attributes = [];
-					foreach (
-						$lowest_price_variation['attributes']
-						as $attribute_name => $attribute_value
-					) {
-						$taxonomy = str_replace('attribute_', '', $attribute_name);
-						$default_attributes[$taxonomy] = $attribute_value;
-					}
-
-					// Aggiorna gli attributi predefiniti del prodotto
-					update_post_meta($product_id, '_default_attributes', $default_attributes);
-
-					// Gestione immagine
-					$variation_id = (int) $lowest_price_variation['variation_id'];
-					if ($variation_id) {
-						$variation_obj = wc_get_product($variation_id);
-						if ($variation_obj) {
-							$image_id = $variation_obj->get_image_id();
-
-							// Se la variante ha un'immagine, impostala come principale
-							if ($image_id) {
-								// Salva l'immagine principale corrente come meta se non è già una variante
-								$current_image_id = get_post_thumbnail_id($product_id);
-								if ($current_image_id && $current_image_id != $image_id) {
-									update_post_meta(
-										$product_id,
-										'_original_thumbnail_id',
-										$current_image_id,
-									);
-								}
-
-								// Imposta la nuova immagine principale
-								set_post_thumbnail($product_id, $image_id);
-							} else {
-								// Cerca la prima variante con un'immagine
-								foreach ($available_variations as $variation) {
-									$var_obj = wc_get_product($variation['variation_id']);
-									if ($var_obj && $var_obj->get_image_id()) {
-										$image_id = $var_obj->get_image_id();
-										set_post_thumbnail($product_id, $image_id);
-										break;
-									}
-								}
-							}
-						}
-					}
-
-					return $variation_id;
+				if ($best_id) {
+					return $best_id;
 				}
 			}
 		}
 
-		return null;
+		return self::pickDefaultVariationIdFromChildren($product);
+	}
+
+	/**
+	 * Fallback quando get_available_variations() è vuoto (lookup, stock, un solo attributo).
+	 *
+	 * @param \WC_Product $product
+	 */
+	private static function pickDefaultVariationIdFromChildren($product) {
+		$children = $product->get_children();
+		if (empty($children)) {
+			return null;
+		}
+
+		$best_published = null;
+		$best_price = PHP_FLOAT_MAX;
+		$first_with_attrs = null;
+
+		foreach ($children as $child_id) {
+			$variation = wc_get_product($child_id);
+			if (!$variation instanceof \WC_Product_Variation) {
+				continue;
+			}
+
+			if (empty(self::buildDefaultAttributesFromVariation($variation))) {
+				continue;
+			}
+
+			if ($first_with_attrs === null) {
+				$first_with_attrs = $child_id;
+			}
+
+			if ($variation->get_status() !== 'publish') {
+				continue;
+			}
+
+			$price = (float) $variation->get_price();
+			if ($price <= 0) {
+				$price = (float) $variation->get_regular_price();
+			}
+			if ($price <= 0) {
+				$price = PHP_FLOAT_MAX;
+			}
+
+			if ($price < $best_price) {
+				$best_price = $price;
+				$best_published = $child_id;
+			}
+		}
+
+		return $best_published ?? $first_with_attrs;
+	}
+
+	/**
+	 * @param array<string, mixed> $row
+	 */
+	private static function variationRowPrice($row) {
+		if (!empty($row['display_price'])) {
+			return (float) $row['display_price'];
+		}
+		if (!empty($row['display_regular_price'])) {
+			return (float) $row['display_regular_price'];
+		}
+
+		return PHP_FLOAT_MAX;
+	}
+
+	private static function getVariationImageId($variation) {
+		if (!$variation instanceof \WC_Product_Variation) {
+			return 0;
+		}
+
+		$image_id = (int) $variation->get_image_id();
+		if ($image_id) {
+			return $image_id;
+		}
+
+		$gallery = get_post_meta($variation->get_id(), 'woo_variation_gallery_images', true);
+		if (is_array($gallery) && !empty($gallery)) {
+			return (int) $gallery[0];
+		}
+
+		return 0;
+	}
+
+	private static function syncParentThumbnailFromVariations(
+		$product_id,
+		$preferred_variation_id
+	) {
+		$image_id = 0;
+		$preferred = wc_get_product($preferred_variation_id);
+		if ($preferred instanceof \WC_Product_Variation) {
+			$image_id = self::getVariationImageId($preferred);
+		}
+
+		if (!$image_id) {
+			$product = wc_get_product($product_id);
+			if ($product) {
+				foreach ($product->get_children() as $child_id) {
+					$variation = wc_get_product($child_id);
+					if (!$variation instanceof \WC_Product_Variation) {
+						continue;
+					}
+					$image_id = self::getVariationImageId($variation);
+					if ($image_id) {
+						break;
+					}
+				}
+			}
+		}
+
+		if (!$image_id) {
+			return;
+		}
+
+		$current_image_id = (int) get_post_thumbnail_id($product_id);
+		if ($current_image_id && $current_image_id !== $image_id) {
+			update_post_meta($product_id, '_original_thumbnail_id', $current_image_id);
+		}
+
+		set_post_thumbnail($product_id, $image_id);
 	}
 
 	/**
@@ -1515,5 +1645,43 @@ class ProductService extends BaseService {
 		Utilities::logWarn("Eliminati tutte le associazioni dei prodotti con ISIGest: $result");
 
 		return $result;
+	}
+
+	/**
+	 * Mette in bozza i prodotti e le varianti sincronizzati da ISIGest.
+	 *
+	 * Usa la tabella isi_api_product come sorgente: i prodotti padre vengono
+	 * impostati a draft, le varianti a private, con visibilità catalogo nascosta.
+	 *
+	 * @return int Numero di prodotti/varianti effettivamente aggiornati.
+	 */
+	public function draftAllCatalog(): int {
+		global $wpdb;
+		set_time_limit(0);
+
+		$count = 0;
+		$rows = $wpdb->get_results(
+			"SELECT post_id, variation_id FROM {$wpdb->prefix}isi_api_product",
+			ARRAY_A,
+		);
+
+		foreach ($rows as $row) {
+			$post_id = (int) $row['post_id'];
+			$variation_id = (int) $row['variation_id'];
+
+			if ($variation_id > 0) {
+				if (ProductStatusHandler::checkAndUpdateProductStatus($variation_id, true, true)) {
+					$count++;
+				}
+			} elseif ($post_id > 0) {
+				if (ProductStatusHandler::checkAndUpdateProductStatus($post_id, false, true)) {
+					$count++;
+				}
+			}
+		}
+
+		Utilities::logWarn("Prodotti ISIGest messi in bozza: {$count} elementi aggiornati");
+
+		return $count;
 	}
 }
